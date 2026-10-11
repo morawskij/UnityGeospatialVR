@@ -1,0 +1,71 @@
+# ==========================================
+# Unity-generated directories
+# ==========================================
+
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# ==========================================
+# Custom project data
+# ==========================================
+
+/Assets/Projects/
+
+# ==========================================
+# IDE-generated files
+# ==========================================
+
+.vs/
+.idea/
+.vscode/
+.gradle/
+.consulo/
+ExportedObj/
+
+# Unity-generated solution and project files
+*.csproj
+*.sln
+*.slnx
+*.unityproj
+*.tmp
+*.user
+*.userprefs
+*.suo
+
+# Debugging and generated metadata
+*.pdb
+*.mdb
+*.pidb
+*.opendb
+*.VC.db
+*.booproj
+*.svd
+sysinfo.txt
+mono_crash.*
+
+# ==========================================
+# Build outputs
+# ==========================================
+
+*.apk
+*.aab
+*.app
+*.unitypackage
+
+# ==========================================
+# Temporary and OS-specific files
+# ==========================================
+
+*.log
+*.blend1
+*.blend1.meta
+.DS_Store
+Thumbs.db
+Desktop.ini
