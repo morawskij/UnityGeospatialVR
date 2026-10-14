@@ -1,25 +1,31 @@
 using Unity.Mathematics;
 using UnityEngine;
 using Unity.Collections;
+using System;
 
 using static Unity.Mathematics.math;
 
 namespace ProceduralMeshes.Generators {
 
-	public struct EdgeComponent : IMeshGenerator {
+    public struct EdgeComponent {
     	public float ScaleFactor  { get; set; }
-		public float VerticalScaleFactor  { get; set; }
-		public float ZScaleFactor  { get; set; }
-		public float midH { get; set; }
-		public int JobLength => 1;
-		int ExecuteEdge<S> (float4 coordinateRange, float4 uvRange, bool2 stitchInfo, bool2 holeInfo, int startingVertexIndex, NativeArray<float> elevationArray, S streams) where S : struct, IMeshStreams {
-            int2 samplingSteps = new int2(2-(int)stitchInfo[0],2-(int)stitchInfo[1]);
+        public float VerticalScaleFactor  { get; set; }
+        public float ZScaleFactor  { get; set; }
+        public float midH { get; set; }
+        public float4 coordinateRange { get; set; }
+        public float4 uvRange { get; set; }
+        public bool2 stitchInfo { get; set; }
+        public bool2 holeInfo { get; set;}
+        public int startingVertexIndex { get; set; }
+        public NativeSlice<float> elevationArray { get; set; }
+        public int ExecuteEdge<S> (S streams) where S : struct, IMeshStreams {
+            int2 samplingSteps = new int2(2-Convert.ToInt32(stitchInfo[0]),2-Convert.ToInt32(stitchInfo[1]));
             float2 horizontalSteps = new float2((float)samplingSteps[0],(float)samplingSteps[1])*(coordinateRange.z-coordinateRange.x)/512f;
             float2 verticalSteps = new float2((float)samplingSteps[0],(float)samplingSteps[1])*(coordinateRange.w-coordinateRange.y)/512f;
             float2 horizontalUvSteps = new float2((float)samplingSteps[0],(float)samplingSteps[1])*(uvRange.z-uvRange.x)/512f;
             float2 verticalUvSteps = new float2((float)samplingSteps[0],(float)samplingSteps[1])*(uvRange.w-uvRange.y)/512f;
-            int midVertexCount = (int)holeInfo[0]*128*(1+(int)stitchInfo[0]);
-            int postMidVertexCount = (int)holeInfo[1]*128*(1+(int)stitchInfo[1]);
+            int midVertexCount = Convert.ToInt32(holeInfo[0])*128*(1+Convert.ToInt32(stitchInfo[0]));
+            int postMidVertexCount = Convert.ToInt32(holeInfo[1])*128*(1+Convert.ToInt32(stitchInfo[1]));
             for (int i = 0; i<midVertexCount; i++) {
                     var vertex = new Vertex();
                     vertex.position.x = (coordinateRange.x+(float)i*horizontalSteps[0])*ScaleFactor;
