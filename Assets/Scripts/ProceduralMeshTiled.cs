@@ -10,27 +10,24 @@ public class ProceduralMeshTiled : MonoBehaviour
 {
 
     private Mesh mesh;
-	public TextAsset elevationData;
-	public TextAsset elevationMetadata;
-	private Elevation elevation;
-	private NativeArray<float> elevationArray;
+	private ElevationMetadata elevationInfo;
 	private float midH;
 	private float hRange;
 	private float dem_resolution_x;
 	private float dem_resolution_y;
 	public float VE = 1f;
+	public string projectName = "Antarctica";
 
 	void Awake () {
 		mesh = new Mesh {
 			name = "Procedural Mesh"
 		};
-		Elevation elevation = new Elevation();
-		elevation.Load(elevationData, elevationMetadata);
-		elevationArray = elevation.values;
-		midH = elevation.mid_h;
-		hRange = elevation.h_range;
-		dem_resolution_x = elevation.dem_resolution_x;
-		dem_resolution_y = elevation.dem_resolution_y;
+		elevationInfo = new ElevationMetadata();
+		elevationInfo.LoadMetadata($"Assets/StreamingAssets/Projects/{projectName}/dem_metadata.json");
+		midH = elevationInfo.mid_h;
+		hRange = elevationInfo.h_range;
+		dem_resolution_x = elevationInfo.dem_resolution_x;
+		dem_resolution_y = elevationInfo.dem_resolution_y;
 		GetComponent<MeshFilter>().mesh = mesh;
 	}
 	
@@ -46,8 +43,8 @@ public class ProceduralMeshTiled : MonoBehaviour
 		Mesh.MeshDataArray meshDataArray = Mesh.AllocateWritableMeshData(1);
 		Mesh.MeshData meshData = meshDataArray[0];
 
-		MeshJobTiled<SquareGridNoDuplicates, SingleStream>.ScheduleParallel(
-			mesh, meshData, elevationArray, VE, midH, hRange, dem_resolution_x, dem_resolution_y, default
+		MeshJobTiled<NestedLoDs, SingleStream>.ScheduleParallel(
+			mesh, meshData, VE, midH, hRange, dem_resolution_x, dem_resolution_y, default
 		).Complete();
 
 		Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, mesh);

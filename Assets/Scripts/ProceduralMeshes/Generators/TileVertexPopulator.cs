@@ -26,10 +26,11 @@ namespace ProceduralMeshes.Generators {
 			for (int x = 0; x < 256; x++, vi ++) {
 				var vertex = new Vertex();
 				vertex.position.x = coordinateStart.x + coordinateSpan.x * (float)x / 255f;
-				vertex.position.z = coordinateStart.y + coordinateSpan.y * (float)z / 255f;
+				float fractionalZ = coordinateStart.y + coordinateSpan.y * (float)z / 255f;
+				vertex.position.z = fractionalZ * ZScaleFactor;
 				vertex.position.y = (elevationArray[z*256 + x]-midH)*VerticalScaleFactor;
 				vertex.normal.y = 1f;
-				vertex.texCoord0 = float2(vertex.position.x,vertex.position.z);
+				vertex.texCoord0 = float2(vertex.position.x,fractionalZ);
 				vertex.tangent.xw = float2(1f, -1f);
 				streams.SetVertex(vi, vertex);
 			}            
