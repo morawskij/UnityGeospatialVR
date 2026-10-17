@@ -1,12 +1,15 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using ProceduralMeshes.Streams;
 
 namespace ProceduralMeshes {
 
+	[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(StreamingAssetsElevationLoader))]
 	public sealed class ProceduralMeshTiledParallel : MonoBehaviour {
 
 		public int deepestLevel;
@@ -14,6 +17,7 @@ namespace ProceduralMeshes {
 		public int4[] tileRanges;
 
 		public string projectName = "Antarctica";
+		[SerializeField] StreamingAssetsElevationLoader elevationLoader;
 
 		ElevationMetadata elevationInfo;
 		float verticalScaleFactor;
@@ -21,47 +25,81 @@ namespace ProceduralMeshes {
 		float midH;
 		float hRange;
         int pyramidLevels;
+		Mesh mesh;
+		bool regenerationRequested;
+		bool generationInProgress;
 
 		void Awake () {
 			elevationInfo = new ElevationMetadata();
+			mesh = new Mesh { name = "Procedural Tiled Mesh" };
+			GetComponent<MeshFilter>().mesh = mesh;
+		}
+
+		void Start () => regenerationRequested = true;
+
+		void OnValidate () => regenerationRequested = true;
+
+		void Update () {
+			if (!regenerationRequested || generationInProgress) {
+				return;
+			}
+
+			regenerationRequested = false;
+			try {
+				LoadProjectMetadata();
+				ValidateInputs();
+			}
+			catch (Exception exception) {
+				Debug.LogException(exception, this);
+				return;
+			}
+
+			generationInProgress = true;
+			StartCoroutine(GenerateMeshWhenTilesAreLoaded());
+		}
+
+		void LoadProjectMetadata () {
 			elevationInfo.LoadMetadata($"Assets/StreamingAssets/Projects/{projectName}/dem_metadata.json");
 			verticalScaleFactor = elevationInfo.VE / elevationInfo.dem_resolution_x;
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
 			midH = elevationInfo.mid_h;
 			hRange = elevationInfo.h_range;
-            pyramidLevels = elevationInfo.pyramid_levels;
+			pyramidLevels = elevationInfo.pyramid_levels;
+		}
+
+		void OnDestroy () {
+			if (mesh != null) {
+				Destroy(mesh);
+			}
 		}
 
 		public int VertexCount => CalculateCounts().vertexCount;
 		public int IndexCount => CalculateCounts().triangleCount * 3;
 
-		public NativeArray<TileRowWork> BuildVertexRowWork (Allocator allocator, out int expectedSampleCount) {
+		public TileLoadWork[] BuildTileLoadWork () {
 			ValidateInputs();
 
-			var work = new List<TileRowWork>();
+			var work = new List<TileLoadWork>();
 			int vertexStart = 0;
 			int sampleStart = 0;
 			int4 innerRange = InitialInnerRange();
 
-			for (int level = 0; level < numberOfLevels; level++) {
-				int4 range = tileRanges[level];
+			for (int rangeIndex = 0; rangeIndex < numberOfLevels; rangeIndex++) {
+				int4 range = tileRanges[rangeIndex];
+				int demLevel = deepestLevel - rangeIndex;
 				for (int tileZ = range.y; tileZ < range.w; tileZ++) {
 					for (int tileX = range.x; tileX < range.z; tileX++) {
 						if (IsInside(tileX, tileZ, innerRange)) {
 							continue;
 						}
 
-						for (int row = 0; row < StreamingAssetsElevationLoader.SamplesPerSide; row++) {
-							work.Add(new TileRowWork {
-								level = level,
-								tileX = tileX,
-								tileZ = tileZ,
-								row = row,
-								vertexStart = vertexStart,
-								sampleStart = sampleStart
-							});
-						}
-
+						work.Add(new TileLoadWork {
+							level = demLevel,
+							tileX = tileX,
+							tileZ = tileZ,
+							vertexStart = vertexStart,
+							sampleStart = sampleStart
+						});
 						vertexStart += StreamingAssetsElevationLoader.SampleCount;
 						sampleStart += StreamingAssetsElevationLoader.SampleCount;
 					}
@@ -70,8 +108,178 @@ namespace ProceduralMeshes {
 				innerRange = range / 2;
 			}
 
-			expectedSampleCount = sampleStart;
+			return work.ToArray();
+		}
+
+		public NativeArray<TileRowWork> BuildVertexRowWork (Allocator allocator, out int expectedSampleCount) {
+			TileLoadWork[] tileWork = BuildTileLoadWork();
+			var work = new List<TileRowWork>(tileWork.Length * StreamingAssetsElevationLoader.SamplesPerSide);
+			foreach (TileLoadWork tile in tileWork) {
+				for (int row = 0; row < StreamingAssetsElevationLoader.SamplesPerSide; row++) {
+					work.Add(new TileRowWork {
+						level = tile.level,
+						tileX = tile.tileX,
+						tileZ = tile.tileZ,
+						row = row,
+						vertexStart = tile.vertexStart,
+						sampleStart = tile.sampleStart
+					});
+				}
+			}
+
+			expectedSampleCount = tileWork.Length * StreamingAssetsElevationLoader.SampleCount;
 			return new NativeArray<TileRowWork>(work.ToArray(), allocator);
+		}
+
+		public IEnumerator LoadTileSamples (
+			Action<NativeArray<float>> onLoaded,
+			Action<string> onError = null
+		) {
+			if (elevationLoader == null) {
+				elevationLoader = GetComponent<StreamingAssetsElevationLoader>();
+			}
+			if (elevationLoader == null) {
+				ReportLoadError("Assign a StreamingAssetsElevationLoader or add one to this GameObject.", onError);
+				yield break;
+			}
+			if (onLoaded == null) {
+				ReportLoadError("A callback for the concatenated tile samples is required.", onError);
+				yield break;
+			}
+
+			TileLoadWork[] tileWork = null;
+			string validationError = null;
+			try {
+				tileWork = BuildTileLoadWork();
+			}
+			catch (Exception exception) {
+				validationError = exception.Message;
+			}
+			if (validationError != null) {
+				ReportLoadError(validationError, onError);
+				yield break;
+			}
+
+			var allSamples = new NativeArray<float>(
+				tileWork.Length * StreamingAssetsElevationLoader.SampleCount,
+				Allocator.Persistent,
+				NativeArrayOptions.UninitializedMemory
+			);
+			bool samplesTransferred = false;
+			try {
+				foreach (TileLoadWork tile in tileWork) {
+					NativeArray<float> tileSamples = default;
+					string loadError = null;
+					yield return elevationLoader.LoadTile(
+						projectName,
+						tile.level,
+						tile.tileX,
+						tile.tileZ,
+						samples => tileSamples = samples,
+						error => loadError = error
+					);
+
+					try {
+						if (loadError != null || !tileSamples.IsCreated) {
+							ReportLoadError(loadError ?? "Tile loading finished without returning samples.", onError);
+							yield break;
+						}
+
+						NativeArray<float>.Copy(
+							tileSamples, 0, allSamples, tile.sampleStart,
+							StreamingAssetsElevationLoader.SampleCount
+						);
+					}
+					finally {
+						if (tileSamples.IsCreated) {
+							tileSamples.Dispose();
+						}
+					}
+				}
+
+				samplesTransferred = true;
+				onLoaded(allSamples);
+			}
+			finally {
+				if (!samplesTransferred && allSamples.IsCreated) {
+					allSamples.Dispose();
+				}
+			}
+		}
+
+		IEnumerator GenerateMeshWhenTilesAreLoaded () {
+			NativeArray<float> tileSamples = default;
+			try {
+				bool samplesLoaded = false;
+				string loadError = null;
+
+				yield return LoadTileSamples(
+					samples => {
+						tileSamples = samples;
+						samplesLoaded = true;
+					},
+					message => loadError = message
+				);
+
+				if (!samplesLoaded) {
+					ReportLoadError(loadError ?? "Tile loading ended without producing samples.", null);
+					yield break;
+				}
+
+				GenerateMeshFromSamples(tileSamples);
+				tileSamples = default;
+			}
+			finally {
+				if (tileSamples.IsCreated) {
+					tileSamples.Dispose();
+				}
+				generationInProgress = false;
+			}
+		}
+
+		void GenerateMeshFromSamples (NativeArray<float> tileSamples) {
+			NativeArray<TileRowWork> rowWork = default;
+			Mesh.MeshDataArray meshDataArray = default;
+			bool meshDataAllocated = false;
+			bool meshDataApplied = false;
+
+			try {
+				rowWork = BuildVertexRowWork(Allocator.TempJob, out int expectedSampleCount);
+				if (tileSamples.Length != expectedSampleCount) {
+					throw new InvalidOperationException(
+						$"Expected {expectedSampleCount} elevation samples but received {tileSamples.Length}."
+					);
+				}
+
+				meshDataArray = Mesh.AllocateWritableMeshData(1);
+				meshDataAllocated = true;
+				Mesh.MeshData meshData = meshDataArray[0];
+				var streams = new SingleStream();
+				streams.Setup(meshData, Bounds, VertexCount, IndexCount);
+
+				NativeArray<int> indices = meshData.GetIndexData<int>();
+				for (int i = 0; i < indices.Length; i++) {
+					indices[i] = 0;
+				}
+
+				ScheduleVertexRows(tileSamples, rowWork, streams).Complete();
+				Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, mesh);
+				meshDataApplied = true;
+			}
+			catch (Exception exception) {
+				Debug.LogException(exception, this);
+			}
+			finally {
+				if (rowWork.IsCreated) {
+					rowWork.Dispose();
+				}
+				if (meshDataAllocated && !meshDataApplied) {
+					meshDataArray.Dispose();
+				}
+				if (tileSamples.IsCreated) {
+					tileSamples.Dispose();
+				}
+			}
 		}
 
 		public JobHandle ScheduleVertexRows<S> (
@@ -96,13 +304,22 @@ namespace ProceduralMeshes {
 		}
 
 		public Bounds Bounds => new Bounds(
-			Vector3.zero,
+			new Vector3(0.5f, 0f, zScaleFactor / 2f),
 			new Vector3(1f, hRange * verticalScaleFactor, zScaleFactor)
 		);
 
 		static bool IsInside (int tileX, int tileZ, int4 innerRange) =>
 			tileZ >= innerRange.y && tileZ < innerRange.w &&
 			tileX >= innerRange.x && tileX < innerRange.z;
+
+		static void ReportLoadError (string message, Action<string> onError) {
+			if (onError != null) {
+				onError(message);
+			}
+			else {
+				Debug.LogError(message);
+			}
+		}
 
 		int4 InitialInnerRange () => new int4(
 			tileRanges[0].z, tileRanges[0].w,
@@ -115,6 +332,9 @@ namespace ProceduralMeshes {
 			}
 			if (deepestLevel < numberOfLevels-1 || deepestLevel >= pyramidLevels) {
 				throw new InvalidOperationException("deepestLevel is out of bounds.");
+			}
+			if (numberOfLevels > pyramidLevels) {
+				throw new InvalidOperationException("numberOfLevels cannot exceed the DEM pyramid level count.");
 			}
 		}
 
@@ -146,6 +366,14 @@ namespace ProceduralMeshes {
 
 			return (vertexCount, triangleCount);
 		}
+	}
+
+	public struct TileLoadWork {
+		public int level;
+		public int tileX;
+		public int tileZ;
+		public int vertexStart;
+		public int sampleStart;
 	}
 
 	public struct TileRowWork {

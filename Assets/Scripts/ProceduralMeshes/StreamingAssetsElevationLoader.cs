@@ -11,8 +11,6 @@ namespace ProceduralMeshes {
 
 		public const int SamplesPerSide = 256;
 		public const int SampleCount = SamplesPerSide * SamplesPerSide;
-		const int SourceSamplesPerSide = SamplesPerSide * 2;
-		const int SourceSampleCount = SourceSamplesPerSide * SourceSamplesPerSide;
 
 		public IEnumerator LoadTile (
 			string projectName, int level, int x, int z,
@@ -25,7 +23,7 @@ namespace ProceduralMeshes {
 			string loadError = null;
 
 			#if UNITY_EDITOR
-			string editorPath = Path.Combine(Application.dataPath, relativePath);
+			string editorPath = Path.Combine(Application.streamingAssetsPath, relativePath);
 			if (File.Exists(editorPath)) {
 				try {
 					bytes = File.ReadAllBytes(editorPath);
@@ -50,34 +48,18 @@ namespace ProceduralMeshes {
 				}
 			}
 
-				int sourceSamplesPerSide;
-				if (bytes != null && bytes.Length == SampleCount * sizeof(float)) {
-					sourceSamplesPerSide = SamplesPerSide;
-				}
-				else if (bytes != null && bytes.Length == SourceSampleCount * sizeof(float)) {
-					sourceSamplesPerSide = SourceSamplesPerSide;
-				}
-				else {
+				if (bytes == null || bytes.Length != SampleCount * sizeof(float)) {
 					onError?.Invoke(
 						loadError == null
-							? $"Elevation tile '{relativePath}' must contain {SampleCount} or {SourceSampleCount} float samples."
+							? $"Elevation tile '{relativePath}' must contain exactly {SampleCount} float samples (256x256)."
 							: $"Failed to load elevation tile '{relativePath}': {loadError}"
 					);
 					yield break;
 				}
 
 				NativeArray<float> samples = new NativeArray<float>(SampleCount, Allocator.Persistent);
-				for (int z = 0; z < SamplesPerSide; z++) {
-					for (int x = 0; x < SamplesPerSide; x++) {
-						int sourceX = sourceSamplesPerSide == SamplesPerSide
-							? x
-							: x * (sourceSamplesPerSide - 1) / (SamplesPerSide - 1);
-						int sourceZ = sourceSamplesPerSide == SamplesPerSide
-							? z
-							: z * (sourceSamplesPerSide - 1) / (SamplesPerSide - 1);
-						int sourceIndex = sourceZ * sourceSamplesPerSide + sourceX;
-						samples[z * SamplesPerSide + x] = BitConverter.ToSingle(bytes, sourceIndex * sizeof(float));
-					}
+				for (int i = 0; i < SampleCount; i++) {
+					samples[i] = BitConverter.ToSingle(bytes, i * sizeof(float));
 				}
 
 				if (onLoaded == null) {
