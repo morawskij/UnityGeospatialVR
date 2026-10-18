@@ -81,7 +81,6 @@ namespace ProceduralMeshes {
 
 			var work = new List<TileLoadWork>();
 			int vertexStart = 0;
-			int sampleStart = 0;
 			int4 innerRange = InitialInnerRange();
 
 			for (int rangeIndex = 0; rangeIndex < numberOfLevels; rangeIndex++) {
@@ -98,10 +97,8 @@ namespace ProceduralMeshes {
 							tileX = tileX,
 							tileZ = tileZ,
 							vertexStart = vertexStart,
-							sampleStart = sampleStart
 						});
 						vertexStart += StreamingAssetsElevationLoader.SampleCount;
-						sampleStart += StreamingAssetsElevationLoader.SampleCount;
 					}
 				}
 
@@ -121,8 +118,7 @@ namespace ProceduralMeshes {
 						tileX = tile.tileX,
 						tileZ = tile.tileZ,
 						row = row,
-						vertexStart = tile.vertexStart,
-						sampleStart = tile.sampleStart
+						vertexStart = tile.vertexStart
 					});
 				}
 			}
@@ -186,7 +182,7 @@ namespace ProceduralMeshes {
 						}
 
 						NativeArray<float>.Copy(
-							tileSamples, 0, allSamples, tile.sampleStart,
+							tileSamples, 0, allSamples, tile.vertexStart,
 							StreamingAssetsElevationLoader.SampleCount
 						);
 					}
@@ -373,7 +369,6 @@ namespace ProceduralMeshes {
 		public int tileX;
 		public int tileZ;
 		public int vertexStart;
-		public int sampleStart;
 	}
 
 	public struct TileRowWork {
@@ -382,7 +377,17 @@ namespace ProceduralMeshes {
 		public int tileZ;
 		public int row;
 		public int vertexStart;
-		public int sampleStart;
+		public int triangleStart;
+		public int vertexUp;
+		public int vertexUpMiddle;
+		public int vertexLeftOtherRow;
+		public int vertexLeft;
+		public int vertexDown;
+		public int vertexDownMiddle;
+		public int vertexRightOtherRow;
+		public int vertexRight;
+		public bool stitchOnLeft;
+		public bool stitchOnRight;
 	}
 
 	public struct VertexRowsJob<S> : IJobFor where S : struct, IMeshStreams {
@@ -398,19 +403,146 @@ namespace ProceduralMeshes {
 			float levelScale = 1f / (1 << work.level);
 			float coordinateStartX = work.tileX * levelScale;
 			float coordinateStartZ = work.tileZ * levelScale;
-			int vertexIndex = work.vertexStart + work.row * StreamingAssetsElevationLoader.SamplesPerSide;
-			int sampleIndex = work.sampleStart + work.row * StreamingAssetsElevationLoader.SamplesPerSide;
-
-			for (int x = 0; x < StreamingAssetsElevationLoader.SamplesPerSide; x++) {
+			int samplesIndex = work.row * StreamingAssetsElevationLoader.SamplesPerSide;
+			int vertexIndex = work.vertexStart + samplesIndex;
+			int triangleIndex = work.triangleStart;
+			int parallelRowIndex = work.vertexDown;
+			int parallelRowNextIndex = work.vertexDown+1;
+			bool generateAbove = work.vertexUp >= 0;
+			if (generateAbove)
+			{
+				parallelRowIndex = work.vertexUp;
+				parallelRowNextIndex = work.vertexUp+1;
+			}
+			int rightShifter = 1;
+			bool generateBelow = work.vertexDown >= 0;
+			bool stitchingMode = work.vertexUpMiddle >= 0 || work.vertexDownMiddle >= 0;
+			int vertexRightUp = work.vertexUp+255;
+			int vertexRightDown = work.vertexDown+255;
+			if (stitchingMode)
+			{
+				vertexRightUp = work.vertexUpMiddle+255;
+				vertexRightDown = work.vertexDownMiddle+255;
+			}
+			if (work.vertexLeftOtherRow>=0)
+			{
+				if (work.stitchOnLeft && generateBelow)
+				{
+						streams.setTriangle(triangleIndex, int3(work.vertexLeft, vertexIndex,work.vertexLeft+256));
+						streams.setTriangle(triangleIndex+1, int3(work.vertexLeft+256, vertexIndex,work.vertexDown));
+						streams.setTriangle(triangleIndex+2, int3(work.vertexLeft+256,work.vertexDown,work.vertexLeftOtherRow));
+						triangleIndex+=3;
+				}						
+				else
+				{
+					if (generateAbove)
+					{
+						streams.setTriangle(triangleIndex, int3(work.vertexLeftOtherRow, work.vertexUp,work.vertexLeft));
+						streams.setTriangle(triangleIndex+1, int3(work.vertexLeft, work.vertexUp,vertexIndex));
+						triangleIndex+=2;
+					}
+					else if (generateBelow)
+					{
+						streams.setTriangle(triangleIndex, int3(work.vertexLeft, vertexIndex,work.vertexLeftOtherRow));
+						streams.setTriangle(triangleIndex+1, int3(work.vertexLeftOtherRow, vertexIndex,work.vertexDown));
+						triangleIndex+=2;
+					}					
+				}
+			}
+			for (int x = 0; x < 256; x++, vertexIndex++, samplesIndex++) {
 				float fractionalZ = coordinateStartZ + levelScale * work.row / 255f;
 				var vertex = new Vertex();
 				vertex.position.x = coordinateStartX + levelScale * x / 255f;
-				vertex.position.y = (tileSamples[sampleIndex + x] - midH) * VerticalScaleFactor;
+				vertex.position.y = (tileSamples[samplesIndex] - midH) * VerticalScaleFactor;
 				vertex.position.z = fractionalZ * ZScaleFactor;
 				vertex.normal.y = 1f;
 				vertex.texCoord0 = new float2(vertex.position.x, fractionalZ);
 				vertex.tangent.xw = new float2(1f, -1f);
-				streams.SetVertex(vertexIndex + x, vertex);
+				streams.SetVertex(vertexIndex, vertex);
+				if (x==255 && work.vertexRight>=0)
+				{
+					if (work.stitchOnRight && generateBelow)
+					{
+						streams.setTriangle(triangleIndex, int3(vertexIndex,work.vertexRight,work.vertexRight+256));
+						streams.setTriangle(triangleIndex+1, int3(vertexIndex,work.vertexRight+256,vertexRightDown));
+						streams.setTriangle(triangleIndex+2, int3(vertexRightDown,work.vertexRight+256,work.vertexRightOtherRow));
+						triangleIndex+=3;
+					}						
+					else
+					{
+						if (generateAbove)
+						{
+							streams.setTriangle(triangleIndex, int3(vertexIndex, vertexRightUp, work.vertexRightOtherRow));
+							streams.setTriangle(triangleIndex+1, int3(vertexIndex, work.vertexRightOtherRow,work.vertexRight));
+							triangleIndex+=2;
+						}
+						else if (generateBelow)
+						{
+							streams.setTriangle(triangleIndex, int3(vertexRightDown, vertexIndex,work.vertexRight));
+							streams.setTriangle(triangleIndex+1, int3(vertexRightDown,work.vertexRight,work.vertexRightOtherRow));
+							triangleIndex+=2;
+						}					
+					}					
+				}
+				else
+				{
+					if (generateBelow)
+					{
+						if (stitchingMode)
+						{
+							streams.setTriangle(triangleIndex, int3(vertexIndex,parallelRowIndex+1,parallelRowIndex));
+							streams.setTriangle(triangleIndex+1, int3(vertexIndex,vertexIndex+1,parallelRowIndex+1));
+							streams.setTriangle(triangleIndex+2, int3(parallelRowIndex+1,vertexIndex+1,parallelRowNextIndex));
+							triangleIndex+=3;						
+						}
+						else
+						{
+							streams.setTriangle(triangleIndex, int3(vertexIndex, vertexIndex+1,parallelRowIndex));
+							streams.setTriangle(triangleIndex+1, int3(parallelRowIndex, vertexIndex+1,parallelRowNextIndex));
+							triangleIndex+=2;							
+						}
+					}
+					else if (generateAbove)
+					{
+						if (stitchingMode)
+						{
+							streams.setTriangle(triangleIndex, int3(parallelRowIndex,parallelRowIndex+1,vertexIndex));
+							streams.setTriangle(triangleIndex+1, int3(vertexIndex,parallelRowIndex+1,vertexIndex+1));
+							streams.setTriangle(triangleIndex+2, int3(parallelRowIndex+1,parallelRowNextIndex,vertexIndex+1));
+							triangleIndex+=3;						
+						}
+						else
+						{
+							streams.setTriangle(triangleIndex, int3(vertexIndex, parallelRowIndex, parallelRowNextIndex));
+							streams.setTriangle(triangleIndex+1, int3(vertexIndex, parallelRowNextIndex, vertexIndex+1));
+							triangleIndex+=2;							
+						}						
+					}
+				}
+				if (stitchingMode)
+				{
+					if (x==127)
+					{
+						parallelRowIndex+=65281;
+					}
+					else
+					{
+						parallelRowIndex+=2;
+					}
+					if (x==126)
+					{
+						parallelRowNextIndex+=65281;
+					}
+					else
+					{
+						parallelRowNextIndex+=2;
+					}
+				}
+				else
+				{
+					parallelRowIndex+=1;
+					parallelRowNextIndex+=1;
+				}
 			}
 		}
 	}
