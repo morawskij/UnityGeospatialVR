@@ -81,40 +81,77 @@ namespace ProceduralMeshes {
 
 			var work = new List<TileLoadWork>();
 			int vertexStart = 0;
+			int triangleStart = 0;
 			int4 innerRange = InitialInnerRange();
 
 			for (int rangeIndex = 0; rangeIndex < numberOfLevels; rangeIndex++) {
 				int4 range = tileRanges[rangeIndex];
 				int demLevel = deepestLevel - rangeIndex;
 				int levelVertexStart = vertexStart;
-				int outerRangeHorizontal = range.z-range.x
+				int outerRangeHorizontal = range.z-range.x;
 				for (int tileX = range.x; tileX < range.z; tileX++) {
 					for (int tileZ = range.y; tileZ < range.w; tileZ++) {
 						if (IsInside(tileX, tileZ, innerRange)) {
 							continue;
 						}
-
+							int vertexUpLeft=GetVertexUpLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							int vertexUp=GetVertexUp(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							int vertexUpMiddle=GetVertexUpMiddle(tileX,tileZ,innerRange,levelVertexStart);
+							int vertexUpRight=GetVertexUpRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							int vertexRight=GetVertexRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							int vertexRightMiddle=GetVertexRightMiddle(tileX,tileZ,innerRange,levelVertexStart);
+							int vertexDownRight=GetVertexDownRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal,range.x);
+							int vertexDownMiddle=GetVertexDownMiddle(tileX,tileZ,innerRange,levelVertexStart);
+							int vertexDown=GetVertexDown(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							int vertexDownLeft=GetVertexDownLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							int vertexLeftMiddle=GetVertexLeftMiddle(tileX,tileZ,innerRange,levelVertexStart);
+							int vertexLeft=GetVertexLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							bool transitionCase = tileZ == innerRange.w-1;
 						work.Add(new TileLoadWork {
 							level = demLevel,
 							tileX = tileX,
 							tileZ = tileZ,
 							vertexStart = vertexStart,
-							triangleStart=TBD,
-							vertexUpLeft=GetVertexUpLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal),
-							vertexUp=GetVertexUp(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal),
-							vertexUpMiddle=GetVertexUpMiddle(tileX,tileZ,innerRange,levelVertexStart),
-							vertexUpRight=GetVertexUpRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal),
-							vertexRight=GetVertexRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal),
-							vertexRightMiddle=GetVertexRightMiddle(tileX,tileZ,innerRange,levelVertexStart),
-							vertexDownRight=GetVertexDownRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal,range.x),
-							vertexDownMiddle=GetVertexDownMiddle(tileX,tileZ,innerRange,levelVertexStart),
-							vertexDown=GetVertexDown(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal),
-							vertexDownLeft=TBD,
-							vertexLeftMiddle=TBD,
-							vertexLeft=TBD,
-							transitionCase = tileRanges.Z == innerRange.w
+							triangleStart=triangleStart,
+							vertexUpLeft=vertexUpLeft,
+							vertexUp=vertexUp,
+							vertexUpMiddle=vertexUpMiddle,
+							vertexUpRight=vertexUpRight,
+							vertexRight=vertexRight,
+							vertexRightMiddle=vertexRightMiddle,
+							vertexDownRight=vertexDownRight,
+							vertexDownMiddle=vertexDownMiddle,
+							vertexDown=vertexDown,
+							vertexDownLeft=vertexDownLeft,
+							vertexLeftMiddle=vertexLeftMiddle,
+							vertexLeft=vertexLeft,
+							transitionCase = transitionCase
 						});
 						vertexStart += 256;
+						triangleStart += 130050;
+						int edgeOne=0;
+						int edgeTwo=1;
+						if (!transitionCase)
+						{
+							triangleStart+=510;
+							edgeOne+=1;
+						}
+						if ((vertexDown>=0 && vertexDownMiddle>=0) || (vertexUp>=0 && vertexUpMiddle>=0))
+						{
+							triangleStart+=255;
+							edgeOne+=1;
+						}
+						if (tileX != innerRange.z-1)
+						{
+							triangleStart+=510;
+							edgeTwo+=1;
+						}
+						if ((vertexRight>=0 && vertexRightMiddle>=0) || (vertexLeft>=0 && vertexLeftMiddle>=0))
+						{
+							triangleStart+=255;
+							edgeTwo+=1;
+						}				
+						triangleStart+=edgeOne*edgeTwo;		
 					}
 				}
 
@@ -413,6 +450,7 @@ namespace ProceduralMeshes {
 
 				ScheduleVertexRows(tileSamples, rowWork, streams).Complete();
 				Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, mesh);
+				mesh.bounds = Bounds;
 				meshDataApplied = true;
 			}
 			catch (Exception exception) {
@@ -602,11 +640,58 @@ namespace ProceduralMeshes {
 			}
 			else if  (tileZ==innerRange.y-1 && tileX>=innerRange.x && tileX<innerRange.z)
 			{
-				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.X)*131072;
+				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.x)*131072;
 			}
 			else if (tileZ<innerRange.w-1)
 			{
 				return v1+(outerRangeHorizontal-innerRange.z+innerRange.x)*65536;				
+			}
+			else
+			{
+				return -1;
+			}
+		}  				
+		static int GetVertexDownLeft (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		{
+			if (tileX >= innerRange.z && tileZ < innerRange.y-1)
+			{
+				return v1+(outerRangeHorizontal-1)*65536+255;
+			}
+			else if (tileX > innerRange.z && tileZ < innerRange.w-1)
+			{
+				return v1+(outerRangeHorizontal-innerRange.z+innerRange.x-1)*65536+255;
+			}
+			else if (tileX == innerRange.z && tileZ < innerRange.w-1)
+			{
+				return v0-(innerRange.z-innerRange.x)*((innerRange.w-tileZ-2)*262144+131072)-65281;
+			}
+			else
+			{
+				return -1;
+			}
+		}  		
+
+		static int GetVertexLeftMiddle (int tileX, int tileZ, int4 innerRange, int v0)
+		{
+			if  (tileX==innerRange.z && tileZ>=innerRange.y && tileZ<innerRange.w)
+			{
+				return v0-(innerRange.w-tileZ-1)*(innerRange.z-innerRange.x)*262144-65281;
+			}
+			else
+			{
+				return -1;
+			}
+		}  		
+
+		static int GetVertexLeft (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		{
+			if (tileX>=innerRange.z && (tileZ<innerRange.y || tileZ>=innerRange.w || tileX>innerRange.z))
+			{
+				return v1-65281;
+			}
+			else if  (tileX==innerRange.z && tileZ>=innerRange.y && tileZ<innerRange.w)
+			{
+				return v0-((innerRange.w-tileZ-1)*262144+131072)*(innerRange.z-innerRange.x)-65281;
 			}
 			else
 			{
@@ -735,7 +820,6 @@ namespace ProceduralMeshes {
 				parallelRowIndex = work.vertexUp;
 				parallelRowNextIndex = work.vertexUp+1;
 			}
-			int rightShifter = 1;
 			bool generateBelow = work.vertexDown >= 0;
 			bool stitchingMode = work.vertexUpMiddle >= 0 || work.vertexDownMiddle >= 0;
 			int vertexRightUp = work.vertexUp+255;
@@ -749,23 +833,23 @@ namespace ProceduralMeshes {
 			{
 				if (work.stitchOnLeft && generateBelow)
 				{
-						streams.setTriangle(triangleIndex, int3(work.vertexLeft, vertexIndex,work.vertexLeft+256));
-						streams.setTriangle(triangleIndex+1, int3(work.vertexLeft+256, vertexIndex,work.vertexDown));
-						streams.setTriangle(triangleIndex+2, int3(work.vertexLeft+256,work.vertexDown,work.vertexLeftOtherRow));
+						streams.SetTriangle(triangleIndex, new int3(work.vertexLeft, vertexIndex,work.vertexLeft+256));
+						streams.SetTriangle(triangleIndex+1, new int3(work.vertexLeft+256, vertexIndex,work.vertexDown));
+						streams.SetTriangle(triangleIndex+2, new int3(work.vertexLeft+256,work.vertexDown,work.vertexLeftOtherRow));
 						triangleIndex+=3;
 				}						
 				else
 				{
 					if (generateAbove)
 					{
-						streams.setTriangle(triangleIndex, int3(work.vertexLeftOtherRow, work.vertexUp,work.vertexLeft));
-						streams.setTriangle(triangleIndex+1, int3(work.vertexLeft, work.vertexUp,vertexIndex));
+						streams.SetTriangle(triangleIndex, new int3(work.vertexLeftOtherRow, work.vertexUp,work.vertexLeft));
+						streams.SetTriangle(triangleIndex+1, new int3(work.vertexLeft, work.vertexUp,vertexIndex));
 						triangleIndex+=2;
 					}
 					else if (generateBelow)
 					{
-						streams.setTriangle(triangleIndex, int3(work.vertexLeft, vertexIndex,work.vertexLeftOtherRow));
-						streams.setTriangle(triangleIndex+1, int3(work.vertexLeftOtherRow, vertexIndex,work.vertexDown));
+						streams.SetTriangle(triangleIndex, new int3(work.vertexLeft, vertexIndex,work.vertexLeftOtherRow));
+						streams.SetTriangle(triangleIndex+1, new int3(work.vertexLeftOtherRow, vertexIndex,work.vertexDown));
 						triangleIndex+=2;
 					}					
 				}
@@ -784,23 +868,23 @@ namespace ProceduralMeshes {
 				{
 					if (work.stitchOnRight && generateBelow)
 					{
-						streams.setTriangle(triangleIndex, int3(vertexIndex,work.vertexRight,work.vertexRight+256));
-						streams.setTriangle(triangleIndex+1, int3(vertexIndex,work.vertexRight+256,vertexRightDown));
-						streams.setTriangle(triangleIndex+2, int3(vertexRightDown,work.vertexRight+256,work.vertexRightOtherRow));
+						streams.SetTriangle(triangleIndex, new int3(vertexIndex,work.vertexRight,work.vertexRight+256));
+						streams.SetTriangle(triangleIndex+1, new int3(vertexIndex,work.vertexRight+256,vertexRightDown));
+						streams.SetTriangle(triangleIndex+2, new int3(vertexRightDown,work.vertexRight+256,work.vertexRightOtherRow));
 						triangleIndex+=3;
 					}						
 					else
 					{
 						if (generateAbove)
 						{
-							streams.setTriangle(triangleIndex, int3(vertexIndex, vertexRightUp, work.vertexRightOtherRow));
-							streams.setTriangle(triangleIndex+1, int3(vertexIndex, work.vertexRightOtherRow,work.vertexRight));
+							streams.SetTriangle(triangleIndex, new int3(vertexIndex, vertexRightUp, work.vertexRightOtherRow));
+							streams.SetTriangle(triangleIndex+1, new int3(vertexIndex, work.vertexRightOtherRow,work.vertexRight));
 							triangleIndex+=2;
 						}
 						else if (generateBelow)
 						{
-							streams.setTriangle(triangleIndex, int3(vertexRightDown, vertexIndex,work.vertexRight));
-							streams.setTriangle(triangleIndex+1, int3(vertexRightDown,work.vertexRight,work.vertexRightOtherRow));
+							streams.SetTriangle(triangleIndex, new int3(vertexRightDown, vertexIndex,work.vertexRight));
+							streams.SetTriangle(triangleIndex+1, new int3(vertexRightDown,work.vertexRight,work.vertexRightOtherRow));
 							triangleIndex+=2;
 						}					
 					}					
@@ -811,15 +895,15 @@ namespace ProceduralMeshes {
 					{
 						if (stitchingMode)
 						{
-							streams.setTriangle(triangleIndex, int3(vertexIndex,parallelRowIndex+1,parallelRowIndex));
-							streams.setTriangle(triangleIndex+1, int3(vertexIndex,vertexIndex+1,parallelRowIndex+1));
-							streams.setTriangle(triangleIndex+2, int3(parallelRowIndex+1,vertexIndex+1,parallelRowNextIndex));
+							streams.SetTriangle(triangleIndex, new int3(vertexIndex,parallelRowIndex+1,parallelRowIndex));
+							streams.SetTriangle(triangleIndex+1, new int3(vertexIndex,vertexIndex+1,parallelRowIndex+1));
+							streams.SetTriangle(triangleIndex+2, new int3(parallelRowIndex+1,vertexIndex+1,parallelRowNextIndex));
 							triangleIndex+=3;						
 						}
 						else
 						{
-							streams.setTriangle(triangleIndex, int3(vertexIndex, vertexIndex+1,parallelRowIndex));
-							streams.setTriangle(triangleIndex+1, int3(parallelRowIndex, vertexIndex+1,parallelRowNextIndex));
+							streams.SetTriangle(triangleIndex, new int3(vertexIndex, vertexIndex+1,parallelRowIndex));
+							streams.SetTriangle(triangleIndex+1, new int3(parallelRowIndex, vertexIndex+1,parallelRowNextIndex));
 							triangleIndex+=2;							
 						}
 					}
@@ -827,15 +911,15 @@ namespace ProceduralMeshes {
 					{
 						if (stitchingMode)
 						{
-							streams.setTriangle(triangleIndex, int3(parallelRowIndex,parallelRowIndex+1,vertexIndex));
-							streams.setTriangle(triangleIndex+1, int3(vertexIndex,parallelRowIndex+1,vertexIndex+1));
-							streams.setTriangle(triangleIndex+2, int3(parallelRowIndex+1,parallelRowNextIndex,vertexIndex+1));
+							streams.SetTriangle(triangleIndex, new int3(parallelRowIndex,parallelRowIndex+1,vertexIndex));
+							streams.SetTriangle(triangleIndex+1, new int3(vertexIndex,parallelRowIndex+1,vertexIndex+1));
+							streams.SetTriangle(triangleIndex+2, new int3(parallelRowIndex+1,parallelRowNextIndex,vertexIndex+1));
 							triangleIndex+=3;						
 						}
 						else
 						{
-							streams.setTriangle(triangleIndex, int3(vertexIndex, parallelRowIndex, parallelRowNextIndex));
-							streams.setTriangle(triangleIndex+1, int3(vertexIndex, parallelRowNextIndex, vertexIndex+1));
+							streams.SetTriangle(triangleIndex, new int3(vertexIndex, parallelRowIndex, parallelRowNextIndex));
+							streams.SetTriangle(triangleIndex+1, new int3(vertexIndex, parallelRowNextIndex, vertexIndex+1));
 							triangleIndex+=2;							
 						}						
 					}
