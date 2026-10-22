@@ -83,30 +83,43 @@ namespace ProceduralMeshes {
 			int vertexStart = 0;
 			int triangleStart = 0;
 			int4 innerRange = InitialInnerRange();
+			Debug.Log(innerRange);
 
 			for (int rangeIndex = 0; rangeIndex < numberOfLevels; rangeIndex++) {
 				int4 range = tileRanges[rangeIndex];
 				int demLevel = deepestLevel - rangeIndex;
 				int levelVertexStart = vertexStart;
-				int outerRangeHorizontal = range.z-range.x;
 				for (int tileX = range.x; tileX < range.z; tileX++) {
 					for (int tileZ = range.y; tileZ < range.w; tileZ++) {
 						if (IsInside(tileX, tileZ, innerRange)) {
 							continue;
 						}
-							int vertexUpLeft=GetVertexUpLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
-							int vertexUp=GetVertexUp(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							int vertexUpLeft=GetVertexUpLeft(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
+							//Debug.Log(vertexUpLeft);
+							int vertexUp=GetVertexUp(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
+							//Debug.Log(vertexUp);
 							int vertexUpMiddle=GetVertexUpMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							int vertexUpRight=GetVertexUpRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
-							int vertexRight=GetVertexRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							//Debug.Log(vertexUpMiddle);
+							int vertexUpRight=GetVertexUpRight(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
+							//Debug.Log(vertexUpRight);							
+							int vertexRight=GetVertexRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart);
+							//Debug.Log(vertexRight);							
 							int vertexRightMiddle=GetVertexRightMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							int vertexDownRight=GetVertexDownRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal,range.x);
+							//Debug.Log(vertexRightMiddle);							
+							int vertexDownRight=GetVertexDownRight(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
+							//Debug.Log(vertexDownRight);							
 							int vertexDownMiddle=GetVertexDownMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							int vertexDown=GetVertexDown(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
-							int vertexDownLeft=GetVertexDownLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							//Debug.Log(vertexDownMiddle);							
+							int vertexDown=GetVertexDown(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
+							//Debug.Log(vertexDown);							
+							int vertexDownLeft=GetVertexDownLeft(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
+							//Debug.Log(vertexDownLeft);							
 							int vertexLeftMiddle=GetVertexLeftMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							int vertexLeft=GetVertexLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart,outerRangeHorizontal);
+							//Debug.Log(vertexLeftMiddle);							
+							int vertexLeft=GetVertexLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart);
+							//Debug.Log(vertexLeft);							
 							bool transitionCase = tileZ == innerRange.w-1;
+							//Debug.Log(transitionCase);
 						work.Add(new TileLoadWork {
 							level = demLevel,
 							tileX = tileX,
@@ -162,7 +175,14 @@ namespace ProceduralMeshes {
 		}
 
 		public NativeArray<TileRowWork> BuildVertexRowWork (Allocator allocator, out int expectedSampleCount) {
-			TileLoadWork[] tileWork = BuildTileLoadWork();
+			return BuildVertexRowWork(BuildTileLoadWork(), allocator, out expectedSampleCount);
+		}
+
+		NativeArray<TileRowWork> BuildVertexRowWork (
+			TileLoadWork[] tileWork,
+			Allocator allocator,
+			out int expectedSampleCount
+		) {
 			var work = new List<TileRowWork>(tileWork.Length * StreamingAssetsElevationLoader.SamplesPerSide);
 			foreach (TileLoadWork tile in tileWork) {
 				int triangleStart = tile.triangleStart;
@@ -191,7 +211,16 @@ namespace ProceduralMeshes {
 				}
 				int vertexLeft = tile.vertexLeft;
 				int vertexRight = tile.vertexRight;
+				if (vertexLeft<0)
+				{
+					vertexLeftOtherRow=-1;
+				}
+				if (vertexRight<0)
+				{
+					vertexRightOtherRow=-1;
+				}
 				for (int row = 0; row < 256; row++) {
+					Debug.Log(new int2(row,vertexDown));
 					work.Add(new TileRowWork {
 						level = tile.level,
 						tileX = tile.tileX,
@@ -253,7 +282,7 @@ namespace ProceduralMeshes {
 							}
 							else
 							{
-							vertexDown=tile.vertexStart+(row+1)*256;
+							vertexDown=tile.vertexStart+(row+2)*256;
 							}
 						}
 						vertexUpMiddle=-1;
@@ -346,6 +375,26 @@ namespace ProceduralMeshes {
 				yield break;
 			}
 
+			yield return LoadTileSamples(tileWork, onLoaded, onError);
+		}
+
+		IEnumerator LoadTileSamples (
+			TileLoadWork[] tileWork,
+			Action<NativeArray<float>> onLoaded,
+			Action<string> onError
+		) {
+			if (elevationLoader == null) {
+				elevationLoader = GetComponent<StreamingAssetsElevationLoader>();
+			}
+			if (elevationLoader == null) {
+				ReportLoadError("Assign a StreamingAssetsElevationLoader or add one to this GameObject.", onError);
+				yield break;
+			}
+			if (onLoaded == null) {
+				ReportLoadError("A callback for the concatenated tile samples is required.", onError);
+				yield break;
+			}
+
 			var allSamples = new NativeArray<float>(
 				tileWork.Length * StreamingAssetsElevationLoader.SampleCount,
 				Allocator.Persistent,
@@ -396,10 +445,20 @@ namespace ProceduralMeshes {
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
 			NativeArray<float> tileSamples = default;
 			try {
+				TileLoadWork[] tileWork;
+				try {
+					tileWork = BuildTileLoadWork();
+				}
+				catch (Exception exception) {
+					ReportLoadError(exception.Message, null);
+					yield break;
+				}
+
 				bool samplesLoaded = false;
 				string loadError = null;
 
 				yield return LoadTileSamples(
+					tileWork,
 					samples => {
 						tileSamples = samples;
 						samplesLoaded = true;
@@ -412,7 +471,7 @@ namespace ProceduralMeshes {
 					yield break;
 				}
 
-				GenerateMeshFromSamples(tileSamples);
+				GenerateMeshFromSamples(tileSamples, tileWork);
 				tileSamples = default;
 			}
 			finally {
@@ -423,14 +482,14 @@ namespace ProceduralMeshes {
 			}
 		}
 
-		void GenerateMeshFromSamples (NativeArray<float> tileSamples) {
+		void GenerateMeshFromSamples (NativeArray<float> tileSamples, TileLoadWork[] tileWork) {
 			NativeArray<TileRowWork> rowWork = default;
 			Mesh.MeshDataArray meshDataArray = default;
 			bool meshDataAllocated = false;
 			bool meshDataApplied = false;
 
 			try {
-				rowWork = BuildVertexRowWork(Allocator.TempJob, out int expectedSampleCount);
+				rowWork = BuildVertexRowWork(tileWork, Allocator.TempJob, out int expectedSampleCount);
 				if (tileSamples.Length != expectedSampleCount) {
 					throw new InvalidOperationException(
 						$"Expected {expectedSampleCount} elevation samples but received {tileSamples.Length}."
@@ -499,15 +558,15 @@ namespace ProceduralMeshes {
 			tileZ >= innerRange.y && tileZ < innerRange.w &&
 			tileX >= innerRange.x && tileX < innerRange.z;
 
-		static int GetVertexUpLeft (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		static int GetVertexUpLeft (int tileX, int tileZ, int4 range, int4 innerRange, int v0, int v1)
 		{
 			if (tileX == innerRange.z && tileZ == innerRange.w)
 			{
 				return v0-1;
 			}
-			else if (tileX >= innerRange.z || tileZ >= innerRange.w)
+			else if (tileX >= innerRange.z && tileZ >= innerRange.w)
 			{
-				return v1-outerRangeHorizontal*65536-1;
+				return v1-(range.z-range.x)*65536-1;
 			}
 			else
 			{
@@ -515,11 +574,11 @@ namespace ProceduralMeshes {
 			}
 		}  
 
-		static int GetVertexUp (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		static int GetVertexUp (int tileX, int tileZ, int4 range, int4 innerRange, int v0, int v1)
 		{
 			if (tileZ == innerRange.w && tileX<innerRange.x)
 			{
-				return v1-(outerRangeHorizontal-innerRange.z+innerRange.x)*65536+65280;
+				return v1-(range.z-range.x-innerRange.z+innerRange.x)*65536+65280;
 			}
 			else if (tileZ == innerRange.w && tileX<innerRange.z)
 			{
@@ -527,7 +586,7 @@ namespace ProceduralMeshes {
 			}
 			else if (tileZ>=innerRange.w)
 			{
-				return v1-outerRangeHorizontal*65536+65280;
+				return v1-(range.z-range.x)*65536+65280;
 			}
 			else
 			{
@@ -547,19 +606,19 @@ namespace ProceduralMeshes {
 			}
 		}  
 
-		static int GetVertexUpRight (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		static int GetVertexUpRight (int tileX, int tileZ, int4 range, int4 innerRange, int v0, int v1)
 		{
-			if (tileX == innerRange.x-1 && tileZ == innerRange.w)
+			if (tileX >= innerRange.x-1 && tileX<innerRange.z-1 && tileZ == innerRange.w)
 			{
 				return v0-(innerRange.z-innerRange.x)*131072+65280;
 			}
-			else if (tileX < innerRange.x || tileZ == innerRange.w)
+			else if (tileX < innerRange.x && tileZ == innerRange.w)
 			{
-				return v1-(outerRangeHorizontal-innerRange.z+innerRange.x-2)*65536+256;
+				return v1-(range.z-range.x-innerRange.z+innerRange.x-2)*65536+256;
 			}
-			else if (tileX < innerRange.x || tileZ > innerRange.w)
+			else if (tileX < innerRange.z && tileZ >= innerRange.w)
 			{
-				return v1-(outerRangeHorizontal-2)*65536+256;
+				return v1-(range.z-range.x-2)*65536+256;
 			}
 			else
 			{
@@ -568,13 +627,13 @@ namespace ProceduralMeshes {
 		}  	
 
 
-		static int GetVertexRight (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		static int GetVertexRight (int tileX, int tileZ, int4 innerRange, int v0, int v1)
 		{
-			if (tileX<innerRange.z && (tileZ<innerRange.y || tileZ>=innerRange.w || tileX<innerRange.x))
+			if (tileX<innerRange.z-1 && (tileZ<innerRange.y || tileZ>=innerRange.w || tileX<innerRange.x-1))
 			{
 				return v1+65536;
 			}
-			else if  (tileX==innerRange.x && tileZ>=innerRange.y && tileZ<innerRange.w)
+			else if  (tileX==innerRange.x-1 && tileZ>=innerRange.y && tileZ<innerRange.w)
 			{
 				return v0-(innerRange.w-tileZ)*(innerRange.z-innerRange.x)*262144;
 			}
@@ -586,7 +645,7 @@ namespace ProceduralMeshes {
 
 		static int GetVertexRightMiddle (int tileX, int tileZ, int4 innerRange, int v0)
 		{
-			if  (tileX==innerRange.x && tileZ>=innerRange.y && tileZ<innerRange.w)
+			if  (tileX==innerRange.x-1 && tileZ>=innerRange.y && tileZ<innerRange.w)
 			{
 				return v0-(innerRange.w-tileZ)*(innerRange.z-innerRange.x)*262144+131072;
 			}
@@ -596,21 +655,21 @@ namespace ProceduralMeshes {
 			}
 		}  		
 
-		static int GetVertexDownRight (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal, int zeroOuterTile)
+		static int GetVertexDownRight (int tileX, int tileZ, int4 range, int4 innerRange, int v0, int v1)
 		{
-			if (tileZ<innerRange.y-1 || (tileZ == innerRange.y-1 && tileX<innerRange.x-1)) 
+			if (tileZ<innerRange.y-1 || (tileZ == innerRange.y-1 && tileX<innerRange.x-1 && tileZ<range.w-1)) 
 			{
-				return v1+(outerRangeHorizontal+1)*65536;
+				return v1+(range.z-range.x+1)*65536;
 			}
-			else if  (tileZ==innerRange.y-1 && tileX<innerRange.z)
+			else if  (tileZ==innerRange.y-1 && tileX<innerRange.z-1 && tileZ<range.w-1)
 			{
 				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.x+1)*131072;
 			}
-			else if (tileZ < innerRange.w && tileX<innerRange.x-1)
+			else if (tileZ < innerRange.w-1 && tileX<innerRange.x-1)
 			{
-				return v1+(innerRange.x-zeroOuterTile+1)*65536;
+				return v1+(innerRange.x-range.x+1)*65536;
 			}
-			else if (tileZ < innerRange.w && tileX==innerRange.x-1)
+			else if (tileZ < innerRange.w-1 && tileX==innerRange.x-1 && tileX<range.z-1)
 			{
 				return v0-(innerRange.w-tileZ)*(innerRange.z-innerRange.x)*262144;
 			}
@@ -632,11 +691,11 @@ namespace ProceduralMeshes {
 			}
 		}  
 
-		static int GetVertexDown (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		static int GetVertexDown (int tileX, int tileZ, int4 range, int4 innerRange, int v0, int v1)
 		{
-			if (tileZ<innerRange.y-1 || (tileZ == innerRange.y-1 && tileX<innerRange.x)) 
+			if (tileZ<innerRange.y-1 || (tileZ == innerRange.y-1 && tileX<innerRange.x && tileZ<range.w-1)) 
 			{
-				return v1+outerRangeHorizontal*65536;
+				return v1+(range.z-range.x)*65536;
 			}
 			else if  (tileZ==innerRange.y-1 && tileX>=innerRange.x && tileX<innerRange.z)
 			{
@@ -644,22 +703,22 @@ namespace ProceduralMeshes {
 			}
 			else if (tileZ<innerRange.w-1)
 			{
-				return v1+(outerRangeHorizontal-innerRange.z+innerRange.x)*65536;				
+				return v1+(range.z-range.x-innerRange.z+innerRange.x)*65536;				
 			}
 			else
 			{
 				return -1;
 			}
 		}  				
-		static int GetVertexDownLeft (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		static int GetVertexDownLeft (int tileX, int tileZ, int4 range, int4 innerRange, int v0, int v1)
 		{
 			if (tileX >= innerRange.z && tileZ < innerRange.y-1)
 			{
-				return v1+(outerRangeHorizontal-1)*65536+255;
+				return v1+(range.z-range.x-1)*65536+255;
 			}
 			else if (tileX > innerRange.z && tileZ < innerRange.w-1)
 			{
-				return v1+(outerRangeHorizontal-innerRange.z+innerRange.x-1)*65536+255;
+				return v1+(range.z-range.x-innerRange.z+innerRange.x-1)*65536+255;
 			}
 			else if (tileX == innerRange.z && tileZ < innerRange.w-1)
 			{
@@ -683,7 +742,7 @@ namespace ProceduralMeshes {
 			}
 		}  		
 
-		static int GetVertexLeft (int tileX, int tileZ, int4 innerRange, int v0, int v1, int outerRangeHorizontal)
+		static int GetVertexLeft (int tileX, int tileZ, int4 innerRange, int v0, int v1)
 		{
 			if (tileX>=innerRange.z && (tileZ<innerRange.y || tileZ>=innerRange.w || tileX>innerRange.z))
 			{
@@ -809,7 +868,7 @@ namespace ProceduralMeshes {
 			float levelScale = 1f / (1 << work.level);
 			float coordinateStartX = work.tileX * levelScale;
 			float coordinateStartZ = work.tileZ * levelScale;
-			int samplesIndex = work.row * StreamingAssetsElevationLoader.SamplesPerSide;
+			int samplesIndex = work.row * 256;
 			int vertexIndex = work.vertexStart + samplesIndex;
 			int triangleIndex = work.triangleStart;
 			int parallelRowIndex = work.vertexDown;
@@ -858,12 +917,12 @@ namespace ProceduralMeshes {
 				float fractionalZ = coordinateStartZ + levelScale * work.row / 255f;
 				var vertex = new Vertex();
 				vertex.position.x = coordinateStartX + levelScale * x / 255f;
-				vertex.position.y = (tileSamples[samplesIndex+x] - midH) * VerticalScaleFactor;
+				vertex.position.y = (tileSamples[samplesIndex] - midH) * VerticalScaleFactor;
 				vertex.position.z = fractionalZ * ZScaleFactor;
 				vertex.normal.y = 1f;
 				vertex.texCoord0 = new float2(vertex.position.x, fractionalZ);
 				vertex.tangent.xw = new float2(1f, -1f);
-				streams.SetVertex(vertexIndex+x, vertex);
+				streams.SetVertex(vertexIndex, vertex);
 				if (x==255 && work.vertexRight>=0)
 				{
 					if (work.stitchOnRight && generateBelow)
