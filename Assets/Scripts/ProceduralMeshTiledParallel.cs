@@ -17,6 +17,7 @@ namespace ProceduralMeshes {
 		public int4[] tileRanges;
 
 		public string projectName = "Antarctica";
+		public float VE = 1;
 		[SerializeField] StreamingAssetsElevationLoader elevationLoader;
 
 		ElevationMetadata elevationInfo;
@@ -60,7 +61,7 @@ namespace ProceduralMeshes {
 
 		void LoadProjectMetadata () {
 			elevationInfo.LoadMetadata($"Assets/StreamingAssets/Projects/{projectName}/dem_metadata.json");
-			verticalScaleFactor = elevationInfo.VE / elevationInfo.dem_resolution_x;
+			verticalScaleFactor = VE / elevationInfo.dem_resolution_x;
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
 			midH = elevationInfo.mid_h;
 			hRange = elevationInfo.h_range;
@@ -220,7 +221,6 @@ namespace ProceduralMeshes {
 					vertexRightOtherRow=-1;
 				}
 				for (int row = 0; row < 256; row++) {
-					Debug.Log(new int2(row,vertexDown));
 					work.Add(new TileRowWork {
 						level = tile.level,
 						tileX = tile.tileX,
@@ -329,13 +329,25 @@ namespace ProceduralMeshes {
 							{
 								if (row == 254)
 								{
-									vertexLeftOtherRow = tile.vertexDownLeft;	
-									vertexLeftOtherRow = tile.vertexDownRight;	
+									if (vertexLeft>=0)
+									{
+										vertexLeftOtherRow = tile.vertexDownLeft;	
+									}
+									if (vertexRight>=0)
+									{
+										vertexRightOtherRow = tile.vertexDownRight;	
+									}
 								}
 								else
 								{
-									vertexLeftOtherRow+=256;
-									vertexRightOtherRow+=256;
+									if (vertexLeft>=0)
+									{
+										vertexLeftOtherRow+=256;
+									}
+									if (vertexRight>=0)
+									{
+										vertexRightOtherRow+=256;
+									}
 								}
 							}
 						}
@@ -923,30 +935,33 @@ namespace ProceduralMeshes {
 				vertex.texCoord0 = new float2(vertex.position.x, fractionalZ);
 				vertex.tangent.xw = new float2(1f, -1f);
 				streams.SetVertex(vertexIndex, vertex);
-				if (x==255 && work.vertexRight>=0)
+				if (x==255)
 				{
-					if (work.stitchOnRight && generateBelow)
+					if (work.vertexRight>=0)
 					{
-						streams.SetTriangle(triangleIndex, new int3(vertexIndex,work.vertexRight,work.vertexRight+256));
-						streams.SetTriangle(triangleIndex+1, new int3(vertexIndex,work.vertexRight+256,vertexRightDown));
-						streams.SetTriangle(triangleIndex+2, new int3(vertexRightDown,work.vertexRight+256,work.vertexRightOtherRow));
-						triangleIndex+=3;
-					}						
-					else
-					{
-						if (generateAbove)
+						if (work.stitchOnRight && generateBelow)
 						{
-							streams.SetTriangle(triangleIndex, new int3(vertexIndex, vertexRightUp, work.vertexRightOtherRow));
-							streams.SetTriangle(triangleIndex+1, new int3(vertexIndex, work.vertexRightOtherRow,work.vertexRight));
-							triangleIndex+=2;
-						}
-						else if (generateBelow)
+							streams.SetTriangle(triangleIndex, new int3(vertexIndex,work.vertexRight,work.vertexRight+256));
+							streams.SetTriangle(triangleIndex+1, new int3(vertexIndex,work.vertexRight+256,vertexRightDown));
+							streams.SetTriangle(triangleIndex+2, new int3(vertexRightDown,work.vertexRight+256,work.vertexRightOtherRow));
+							triangleIndex+=3;
+						}						
+						else
 						{
-							streams.SetTriangle(triangleIndex, new int3(vertexRightDown, vertexIndex,work.vertexRight));
-							streams.SetTriangle(triangleIndex+1, new int3(vertexRightDown,work.vertexRight,work.vertexRightOtherRow));
-							triangleIndex+=2;
-						}					
-					}					
+							if (generateAbove)
+							{
+								streams.SetTriangle(triangleIndex, new int3(vertexIndex, vertexRightUp, work.vertexRightOtherRow));
+								streams.SetTriangle(triangleIndex+1, new int3(vertexIndex, work.vertexRightOtherRow,work.vertexRight));
+								triangleIndex+=2;
+							}
+							else if (generateBelow)
+							{
+								streams.SetTriangle(triangleIndex, new int3(vertexRightDown, vertexIndex,work.vertexRight));
+								streams.SetTriangle(triangleIndex+1, new int3(vertexRightDown,work.vertexRight,work.vertexRightOtherRow));
+								triangleIndex+=2;
+							}					
+						}		
+					}			
 				}
 				else
 				{
