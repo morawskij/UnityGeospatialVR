@@ -59,7 +59,7 @@ namespace ProceduralMeshes.Streams {
 			};
 		}
 
-		public void SetTriangle (int index, int3 triangle) => triangles[index] = triangle;
+		public void SetTriangle (int index, int3 triangle) => triangles[index] = new int3 (triangle.x,triangle.z,triangle.y);
 
 	}
 }

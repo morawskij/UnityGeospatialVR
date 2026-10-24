@@ -61,7 +61,7 @@ namespace ProceduralMeshes {
 
 		void LoadProjectMetadata () {
 			elevationInfo.LoadMetadata($"Assets/StreamingAssets/Projects/{projectName}/dem_metadata.json");
-			verticalScaleFactor = VE / elevationInfo.dem_resolution_x;
+			verticalScaleFactor = VE / (256*elevationInfo.dem_resolution_x);
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
 			midH = elevationInfo.mid_h;
 			hRange = elevationInfo.h_range;
@@ -84,7 +84,7 @@ namespace ProceduralMeshes {
 			int vertexStart = 0;
 			int triangleStart = 0;
 			int4 innerRange = InitialInnerRange();
-			Debug.Log(innerRange);
+
 
 			for (int rangeIndex = 0; rangeIndex < numberOfLevels; rangeIndex++) {
 				int4 range = tileRanges[rangeIndex];
@@ -95,32 +95,33 @@ namespace ProceduralMeshes {
 						if (IsInside(tileX, tileZ, innerRange)) {
 							continue;
 						}
+							Debug.Log(new int2(tileX,tileZ));
 							int vertexUpLeft=GetVertexUpLeft(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							//Debug.Log(vertexUpLeft);
+							Debug.Log(vertexUpLeft);
 							int vertexUp=GetVertexUp(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							//Debug.Log(vertexUp);
+							Debug.Log(vertexUp);
 							int vertexUpMiddle=GetVertexUpMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							//Debug.Log(vertexUpMiddle);
+							Debug.Log(vertexUpMiddle);
 							int vertexUpRight=GetVertexUpRight(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							//Debug.Log(vertexUpRight);							
+							Debug.Log(vertexUpRight);							
 							int vertexRight=GetVertexRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart);
-							//Debug.Log(vertexRight);							
+							Debug.Log(vertexRight);							
 							int vertexRightMiddle=GetVertexRightMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							//Debug.Log(vertexRightMiddle);							
+							Debug.Log(vertexRightMiddle);							
 							int vertexDownRight=GetVertexDownRight(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							//Debug.Log(vertexDownRight);							
+							Debug.Log(vertexDownRight);							
 							int vertexDownMiddle=GetVertexDownMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							//Debug.Log(vertexDownMiddle);							
+							Debug.Log(vertexDownMiddle);							
 							int vertexDown=GetVertexDown(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							//Debug.Log(vertexDown);							
+							Debug.Log(vertexDown);							
 							int vertexDownLeft=GetVertexDownLeft(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							//Debug.Log(vertexDownLeft);							
+							Debug.Log(vertexDownLeft);							
 							int vertexLeftMiddle=GetVertexLeftMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							//Debug.Log(vertexLeftMiddle);							
+							Debug.Log(vertexLeftMiddle);							
 							int vertexLeft=GetVertexLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart);
-							//Debug.Log(vertexLeft);							
+							Debug.Log(vertexLeft);							
 							bool transitionCase = tileZ == innerRange.w-1;
-							//Debug.Log(transitionCase);
+							Debug.Log(transitionCase);
 						work.Add(new TileLoadWork {
 							level = demLevel,
 							tileX = tileX,
