@@ -95,7 +95,7 @@ namespace ProceduralMeshes {
 						if (IsInside(tileX, tileZ, innerRange)) {
 							continue;
 						}
-							Debug.Log(new int2(tileX,tileZ));
+							Debug.Log(new int4(tileX,tileZ,vertexStart,triangleStart));
 							int vertexUpLeft=GetVertexUpLeft(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
 							Debug.Log(vertexUpLeft);
 							int vertexUp=GetVertexUp(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
@@ -122,6 +122,20 @@ namespace ProceduralMeshes {
 							Debug.Log(vertexLeft);							
 							bool transitionCase = tileZ == innerRange.w-1;
 							Debug.Log(transitionCase);
+							/*int vertexUpLeft=-1;
+							int vertexUp=-1;
+							int vertexUpMiddle=-1;
+							int vertexUpRight=-1;
+							int vertexRight=-1;
+							int vertexRightMiddle=-1;
+							int vertexDownRight=-1;
+							int vertexDownMiddle=-1;
+							int vertexDown=-1;
+							int vertexDownLeft=-1;
+							int vertexLeftMiddle=-1;
+							int vertexLeft=-1;
+							bool transitionCase=true;
+							*/
 						work.Add(new TileLoadWork {
 							level = demLevel,
 							tileX = tileX,
@@ -142,7 +156,7 @@ namespace ProceduralMeshes {
 							vertexLeft=vertexLeft,
 							transitionCase = transitionCase
 						});
-						vertexStart += 256;
+						vertexStart += 65536;
 						triangleStart += 130050;
 						int edgeOne=0;
 						int edgeTwo=1;
@@ -575,11 +589,11 @@ namespace ProceduralMeshes {
 		{
 			if (tileX == innerRange.z && tileZ == innerRange.w)
 			{
-				return v0-1;
+				return v0-1-65280;
 			}
 			else if (tileX >= innerRange.z && tileZ >= innerRange.w)
 			{
-				return v1-(range.z-range.x)*65536-1;
+				return v1-(range.z-range.x)*65536-1-65280;
 			}
 			else
 			{
@@ -591,15 +605,15 @@ namespace ProceduralMeshes {
 		{
 			if (tileZ == innerRange.w && tileX<innerRange.x)
 			{
-				return v1-(range.z-range.x-innerRange.z+innerRange.x)*65536+65280;
+				return v1-(range.z-range.x-innerRange.z+innerRange.x)*65536+65280-65280;
 			}
 			else if (tileZ == innerRange.w && tileX<innerRange.z)
 			{
-				return v0-(innerRange.z-tileX)*131072+65280;
+				return v0-(innerRange.z-tileX)*131072+65280-65280;
 			}
 			else if (tileZ>=innerRange.w)
 			{
-				return v1-(range.z-range.x)*65536+65280;
+				return v1-(range.z-range.x)*65536+65280-65280;
 			}
 			else
 			{
@@ -611,7 +625,7 @@ namespace ProceduralMeshes {
 		{
 			if (tileZ == innerRange.w && tileX>=innerRange.x && tileX<innerRange.z)
 			{
-				return v0-(innerRange.z-tileX-1)*131072-256;
+				return v0-(innerRange.z-tileX-1)*131072-256-65280;
 			}
 			else
 			{
@@ -623,15 +637,15 @@ namespace ProceduralMeshes {
 		{
 			if (tileX >= innerRange.x-1 && tileX<innerRange.z-1 && tileZ == innerRange.w)
 			{
-				return v0-(innerRange.z-innerRange.x)*131072+65280;
+				return v0-(innerRange.z-innerRange.x)*131072+65280-65280;
 			}
 			else if (tileX < innerRange.x && tileZ == innerRange.w)
 			{
-				return v1-(range.z-range.x-innerRange.z+innerRange.x-2)*65536+256;
+				return v1-(range.z-range.x-innerRange.z+innerRange.x-2)*65536+256-65280;
 			}
 			else if (tileX < innerRange.z && tileZ >= innerRange.w)
 			{
-				return v1-(range.z-range.x-2)*65536+256;
+				return v1-(range.z-range.x-2)*65536+256-65280;
 			}
 			else
 			{
@@ -670,21 +684,21 @@ namespace ProceduralMeshes {
 
 		static int GetVertexDownRight (int tileX, int tileZ, int4 range, int4 innerRange, int v0, int v1)
 		{
-			if (tileZ<innerRange.y-1 || (tileZ == innerRange.y-1 && tileX<innerRange.x-1 && tileZ<range.w-1)) 
+			if ((tileZ<innerRange.y-1 && tileX<range.z-1) || (tileZ == innerRange.y-1 && tileX<innerRange.x-1 && tileZ<range.w-1)) 
 			{
-				return v1+(range.z-range.x+1)*65536;
+				return v1+(range.z-range.x+1)*65536+65280;
 			}
 			else if  (tileZ==innerRange.y-1 && tileX<innerRange.z-1 && tileZ<range.w-1)
 			{
-				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.x+1)*131072;
+				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.x+1)*131072+65280;
 			}
 			else if (tileZ < innerRange.w-1 && tileX<innerRange.x-1)
 			{
-				return v1+(innerRange.x-range.x+1)*65536;
+				return v1+(innerRange.x-range.x+1)*65536+65280;
 			}
 			else if (tileZ < innerRange.w-1 && tileX==innerRange.x-1 && tileX<range.z-1)
 			{
-				return v0-(innerRange.w-tileZ)*(innerRange.z-innerRange.x)*262144;
+				return v0-(innerRange.w-tileZ)*(innerRange.z-innerRange.x)*262144+65280;
 			}
 			else
 			{
@@ -696,7 +710,7 @@ namespace ProceduralMeshes {
 		{
 			if (tileZ == innerRange.y-1 && tileX>=innerRange.x && tileX<innerRange.z)
 			{
-				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.x+1)*131072+65536;
+				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.x+1)*131072+65536+65280;
 			}
 			else
 			{
@@ -708,15 +722,15 @@ namespace ProceduralMeshes {
 		{
 			if (tileZ<innerRange.y-1 || (tileZ == innerRange.y-1 && tileX<innerRange.x && tileZ<range.w-1)) 
 			{
-				return v1+(range.z-range.x)*65536;
+				return v1+(range.z-range.x)*65536+65280;
 			}
 			else if  (tileZ==innerRange.y-1 && tileX>=innerRange.x && tileX<innerRange.z)
 			{
-				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.x)*131072;
+				return v0-(innerRange.w-innerRange.y)*(innerRange.z-innerRange.x)*262144+(tileX-innerRange.x)*131072+65280;
 			}
 			else if (tileZ<innerRange.w-1)
 			{
-				return v1+(range.z-range.x-innerRange.z+innerRange.x)*65536;				
+				return v1+(range.z-range.x-innerRange.z+innerRange.x)*65536+65280;				
 			}
 			else
 			{
@@ -727,15 +741,15 @@ namespace ProceduralMeshes {
 		{
 			if (tileX >= innerRange.z && tileZ < innerRange.y-1)
 			{
-				return v1+(range.z-range.x-1)*65536+255;
+				return v1+(range.z-range.x-1)*65536+255+65280;
 			}
 			else if (tileX > innerRange.z && tileZ < innerRange.w-1)
 			{
-				return v1+(range.z-range.x-innerRange.z+innerRange.x-1)*65536+255;
+				return v1+(range.z-range.x-innerRange.z+innerRange.x-1)*65536+255+65280;
 			}
 			else if (tileX == innerRange.z && tileZ < innerRange.w-1)
 			{
-				return v0-(innerRange.z-innerRange.x)*((innerRange.w-tileZ-2)*262144+131072)-65281;
+				return v0-(innerRange.z-innerRange.x)*((innerRange.w-tileZ-2)*262144+131072)-65281+65280;
 			}
 			else
 			{
@@ -881,8 +895,7 @@ namespace ProceduralMeshes {
 			float levelScale = 1f / (1 << work.level);
 			float coordinateStartX = work.tileX * levelScale;
 			float coordinateStartZ = work.tileZ * levelScale;
-			int samplesIndex = work.row * 256;
-			int vertexIndex = work.vertexStart + samplesIndex;
+			int vertexIndex = work.vertexStart + work.row * 256;
 			int triangleIndex = work.triangleStart;
 			int parallelRowIndex = work.vertexDown;
 			int parallelRowNextIndex = work.vertexDown+1;
@@ -926,11 +939,11 @@ namespace ProceduralMeshes {
 					}					
 				}
 			}
-			for (int x = 0; x < 256; x++, vertexIndex++, samplesIndex++) {
+			for (int x = 0; x < 256; x++, vertexIndex++) {
 				float fractionalZ = coordinateStartZ + levelScale * work.row / 255f;
 				var vertex = new Vertex();
 				vertex.position.x = coordinateStartX + levelScale * x / 255f;
-				vertex.position.y = (tileSamples[samplesIndex] - midH) * VerticalScaleFactor;
+				vertex.position.y = (tileSamples[vertexIndex] - midH) * VerticalScaleFactor;
 				vertex.position.z = fractionalZ * ZScaleFactor;
 				vertex.normal.y = 1f;
 				vertex.texCoord0 = new float2(vertex.position.x, fractionalZ);
