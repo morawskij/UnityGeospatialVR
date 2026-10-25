@@ -90,8 +90,11 @@ namespace ProceduralMeshes {
 				int4 range = tileRanges[rangeIndex];
 				int demLevel = deepestLevel - rangeIndex;
 				int levelVertexStart = vertexStart;
-				for (int tileX = range.x; tileX < range.z; tileX++) {
-					for (int tileZ = range.y; tileZ < range.w; tileZ++) {
+				Debug.Log(demLevel);
+				Debug.Log(range);
+				Debug.Log(innerRange);
+				for (int tileZ = range.y; tileZ < range.w; tileZ++) {
+					for (int tileX = range.x; tileX < range.z; tileX++) {
 						if (IsInside(tileX, tileZ, innerRange)) {
 							continue;
 						}
@@ -134,8 +137,8 @@ namespace ProceduralMeshes {
 							int vertexDownLeft=-1;
 							int vertexLeftMiddle=-1;
 							int vertexLeft=-1;
-							bool transitionCase=true;
-							*/
+							bool transitionCase=true;*/
+							
 						work.Add(new TileLoadWork {
 							level = demLevel,
 							tileX = tileX,
@@ -943,7 +946,7 @@ namespace ProceduralMeshes {
 				float fractionalZ = coordinateStartZ + levelScale * work.row / 255f;
 				var vertex = new Vertex();
 				vertex.position.x = coordinateStartX + levelScale * x / 255f;
-				vertex.position.y = (tileSamples[vertexIndex] - midH) * VerticalScaleFactor;
+				vertex.position.y = (tileSamples[vertexIndex] - midH) * VerticalScaleFactor;//+VerticalScaleFactor*1500f*(float)Math.Sin((float)x+(float)work.row);
 				vertex.position.z = fractionalZ * ZScaleFactor;
 				vertex.normal.y = 1f;
 				vertex.texCoord0 = new float2(vertex.position.x, fractionalZ);
