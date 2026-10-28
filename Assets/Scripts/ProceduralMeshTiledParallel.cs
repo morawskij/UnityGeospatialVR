@@ -12,15 +12,20 @@ namespace ProceduralMeshes {
 	[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(StreamingAssetsElevationLoader))]
 	public sealed class ProceduralMeshTiledParallel : MonoBehaviour {
 
+		public Camera mainCamera;
 		public int deepestLevel;
 		public int numberOfLevels;
-		public int4[] tileRanges;
+		public List<int4> tileRanges;
 
 		public string projectName = "Antarctica";
 		public float VE = 1;
+		
+		public List<int> textureOrder;
 		[SerializeField] StreamingAssetsElevationLoader elevationLoader;
 
 		ElevationMetadata elevationInfo;
+		AllTexturesMetadata texturesInfo;
+		MeshTilingSchemeDetermine meshTilingScheme;
 		float verticalScaleFactor;
 		float zScaleFactor;
 		float midH;
@@ -30,8 +35,14 @@ namespace ProceduralMeshes {
 		bool regenerationRequested;
 		bool generationInProgress;
 
+        List<int> texturePyramidLevels;
+        List<string> textureNames;
+		int numberOfTextures;
+		int maximumDescentLevel;
+
 		void Awake () {
 			elevationInfo = new ElevationMetadata();
+			texturesInfo = new AllTexturesMetadata();
 			mesh = new Mesh { name = "Procedural Tiled Mesh" };
 			GetComponent<MeshFilter>().mesh = mesh;
 		}
@@ -41,6 +52,7 @@ namespace ProceduralMeshes {
 		void OnValidate () => regenerationRequested = true;
 
 		void Update () {
+
 			if (!regenerationRequested || generationInProgress) {
 				return;
 			}
@@ -61,11 +73,27 @@ namespace ProceduralMeshes {
 
 		void LoadProjectMetadata () {
 			elevationInfo.LoadMetadata($"Assets/StreamingAssets/Projects/{projectName}/dem_metadata.json");
+			texturesInfo.LoadMetadataFolder(projectName);
 			verticalScaleFactor = VE / (256*elevationInfo.dem_resolution_x);
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
 			midH = elevationInfo.mid_h;
 			hRange = elevationInfo.h_range;
 			pyramidLevels = elevationInfo.pyramid_levels;
+			texturePyramidLevels = texturesInfo.pyramidLevels;
+			textureNames = texturesInfo.textureNames;
+			numberOfTextures = texturesInfo.numberOfTextures;
+			maximumDescentLevel = pyramidLevels;
+			if (texturePyramidLevels != null) {
+				foreach (int textureLevel in texturePyramidLevels) {
+					maximumDescentLevel = Math.Max(maximumDescentLevel, textureLevel);
+				}
+			}
+			deepestLevel = pyramidLevels;
+			numberOfLevels = pyramidLevels;
+            tileRanges = new List<int4>(pyramidLevels);
+            for (int level = 0; level < pyramidLevels; level++) {
+                tileRanges.Add(new int4(0, 0, 0, 0));		
+			}	
 		}
 
 		void OnDestroy () {
@@ -90,54 +118,24 @@ namespace ProceduralMeshes {
 				int4 range = tileRanges[rangeIndex];
 				int demLevel = deepestLevel - rangeIndex;
 				int levelVertexStart = vertexStart;
-				Debug.Log(demLevel);
-				Debug.Log(range);
-				Debug.Log(innerRange);
 				for (int tileZ = range.y; tileZ < range.w; tileZ++) {
 					for (int tileX = range.x; tileX < range.z; tileX++) {
 						if (IsInside(tileX, tileZ, innerRange)) {
 							continue;
 						}
-							Debug.Log(new int4(tileX,tileZ,vertexStart,triangleStart));
 							int vertexUpLeft=GetVertexUpLeft(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							Debug.Log(vertexUpLeft);
 							int vertexUp=GetVertexUp(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							Debug.Log(vertexUp);
 							int vertexUpMiddle=GetVertexUpMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							Debug.Log(vertexUpMiddle);
-							int vertexUpRight=GetVertexUpRight(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							Debug.Log(vertexUpRight);							
-							int vertexRight=GetVertexRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart);
-							Debug.Log(vertexRight);							
-							int vertexRightMiddle=GetVertexRightMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							Debug.Log(vertexRightMiddle);							
-							int vertexDownRight=GetVertexDownRight(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							Debug.Log(vertexDownRight);							
-							int vertexDownMiddle=GetVertexDownMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							Debug.Log(vertexDownMiddle);							
-							int vertexDown=GetVertexDown(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							Debug.Log(vertexDown);							
-							int vertexDownLeft=GetVertexDownLeft(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);
-							Debug.Log(vertexDownLeft);							
-							int vertexLeftMiddle=GetVertexLeftMiddle(tileX,tileZ,innerRange,levelVertexStart);
-							Debug.Log(vertexLeftMiddle);							
-							int vertexLeft=GetVertexLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart);
-							Debug.Log(vertexLeft);							
+							int vertexUpRight=GetVertexUpRight(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);						
+							int vertexRight=GetVertexRight(tileX,tileZ,innerRange,levelVertexStart,vertexStart);					
+							int vertexRightMiddle=GetVertexRightMiddle(tileX,tileZ,innerRange,levelVertexStart);							
+							int vertexDownRight=GetVertexDownRight(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);						
+							int vertexDownMiddle=GetVertexDownMiddle(tileX,tileZ,innerRange,levelVertexStart);						
+							int vertexDown=GetVertexDown(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);						
+							int vertexDownLeft=GetVertexDownLeft(tileX,tileZ,range,innerRange,levelVertexStart,vertexStart);						
+							int vertexLeftMiddle=GetVertexLeftMiddle(tileX,tileZ,innerRange,levelVertexStart);						
+							int vertexLeft=GetVertexLeft(tileX,tileZ,innerRange,levelVertexStart,vertexStart);					
 							bool transitionCase = tileZ == innerRange.w-1;
-							Debug.Log(transitionCase);
-							/*int vertexUpLeft=-1;
-							int vertexUp=-1;
-							int vertexUpMiddle=-1;
-							int vertexUpRight=-1;
-							int vertexRight=-1;
-							int vertexRightMiddle=-1;
-							int vertexDownRight=-1;
-							int vertexDownMiddle=-1;
-							int vertexDown=-1;
-							int vertexDownLeft=-1;
-							int vertexLeftMiddle=-1;
-							int vertexLeft=-1;
-							bool transitionCase=true;*/
 							
 						work.Add(new TileLoadWork {
 							level = demLevel,
@@ -473,6 +471,11 @@ namespace ProceduralMeshes {
 		}
 
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
+			/*var meshTilingScheme = new MeshTilingSchemeDetermine(mainCamera,zScaleFactor,pyramidLevels,projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel,textureOrder);
+			meshTilingScheme.DetermineAll();
+			deepestLevel = meshTilingScheme.deepestLevel;
+			numberOfLevels = meshTilingScheme.numberOfLevels;
+			tileRanges = meshTilingScheme.tileRanges.GetRange(pyramidLevels-deepestLevel,pyramidLevels-deepestLevel+numberOfLevels);*/
 			NativeArray<float> tileSamples = default;
 			try {
 				TileLoadWork[] tileWork;
@@ -592,11 +595,11 @@ namespace ProceduralMeshes {
 		{
 			if (tileX == innerRange.z && tileZ == innerRange.w)
 			{
-				return v0-1-65280;
+				return v0-65281;
 			}
 			else if (tileX >= innerRange.z && tileZ >= innerRange.w)
 			{
-				return v1-(range.z-range.x)*65536-1-65280;
+				return v1-(range.z-range.x)*65536-65281;
 			}
 			else
 			{
@@ -608,15 +611,15 @@ namespace ProceduralMeshes {
 		{
 			if (tileZ == innerRange.w && tileX<innerRange.x)
 			{
-				return v1-(range.z-range.x-innerRange.z+innerRange.x)*65536+65280-65280;
+				return v1-(range.z-range.x-innerRange.z+innerRange.x)*65536;
 			}
 			else if (tileZ == innerRange.w && tileX<innerRange.z)
 			{
-				return v0-(innerRange.z-tileX)*131072+65280-65280;
+				return v0-(innerRange.z-tileX)*131072;
 			}
 			else if (tileZ>=innerRange.w)
 			{
-				return v1-(range.z-range.x)*65536+65280-65280;
+				return v1-(range.z-range.x)*65536;
 			}
 			else
 			{
@@ -628,7 +631,7 @@ namespace ProceduralMeshes {
 		{
 			if (tileZ == innerRange.w && tileX>=innerRange.x && tileX<innerRange.z)
 			{
-				return v0-(innerRange.z-tileX-1)*131072-256-65280;
+				return v0-(innerRange.z-tileX-1)*131072-65536;
 			}
 			else
 			{
@@ -640,15 +643,15 @@ namespace ProceduralMeshes {
 		{
 			if (tileX >= innerRange.x-1 && tileX<innerRange.z-1 && tileZ == innerRange.w)
 			{
-				return v0-(innerRange.z-innerRange.x)*131072+65280-65280;
+				return v0-(innerRange.z-innerRange.x)*131072;
 			}
 			else if (tileX < innerRange.x && tileZ == innerRange.w)
 			{
-				return v1-(range.z-range.x-innerRange.z+innerRange.x-2)*65536+256-65280;
+				return v1-(range.z-range.x-innerRange.z+innerRange.x-2)*65536-65024;
 			}
 			else if (tileX < innerRange.z && tileZ >= innerRange.w)
 			{
-				return v1-(range.z-range.x-2)*65536+256-65280;
+				return v1-(range.z-range.x-2)*65536-65024;
 			}
 			else
 			{
@@ -744,15 +747,15 @@ namespace ProceduralMeshes {
 		{
 			if (tileX >= innerRange.z && tileZ < innerRange.y-1)
 			{
-				return v1+(range.z-range.x-1)*65536+255+65280;
+				return v1+(range.z-range.x-1)*65536+65535;
 			}
 			else if (tileX > innerRange.z && tileZ < innerRange.w-1)
 			{
-				return v1+(range.z-range.x-innerRange.z+innerRange.x-1)*65536+255+65280;
+				return v1+(range.z-range.x-innerRange.z+innerRange.x-1)*65536+65535;
 			}
 			else if (tileX == innerRange.z && tileZ < innerRange.w-1)
 			{
-				return v0-(innerRange.z-innerRange.x)*((innerRange.w-tileZ-2)*262144+131072)-65281+65280;
+				return v0-(innerRange.z-innerRange.x)*((innerRange.w-tileZ-2)*262144+131072)-1;
 			}
 			else
 			{
@@ -804,7 +807,7 @@ namespace ProceduralMeshes {
 		);
 
 		void ValidateInputs () {
-			if (numberOfLevels <= 0 || tileRanges == null || tileRanges.Length < numberOfLevels) {
+			if (numberOfLevels <= 0 || tileRanges == null || tileRanges.Count < numberOfLevels) {
 				throw new InvalidOperationException("Provide at least one tile range for each LoD level.");
 			}
 			if (deepestLevel < numberOfLevels-1 || deepestLevel >= pyramidLevels) {
