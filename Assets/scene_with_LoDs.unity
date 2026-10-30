@@ -531,7 +531,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 10bc750d408dc5ff9af048f436ffc927, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshes.ProceduralMeshTiledParallel
-  mainCamera: {fileID: 0}
+  mainCamera: {fileID: 347789240}
   projectName: Antarctica
   VE: 1
   textureOrder: 000000000100000002000000

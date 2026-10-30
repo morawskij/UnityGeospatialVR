@@ -18,10 +18,13 @@ namespace ProceduralMeshes {
 		int numberOfTextures;
         int maximumDescentLevel;
 
+        int DEMwidth;
+        int DEMheight;
+
         List<int> textureOrder;
         public string projectName;
 
-        public MeshTilingSchemeDetermine(Camera mainCamera, float zScale, int pyramidLevels, string projectName, List<int> texturePyramidLevels, int numberOfTextures, int maximumDescentLevel, List<int> textureOrder) {
+        public MeshTilingSchemeDetermine(Camera mainCamera, float zScale, int pyramidLevels, string projectName, List<int> texturePyramidLevels, int numberOfTextures, int maximumDescentLevel, List<int> textureOrder, int DEMwidth, int DEMheight) {
             this.mainCamera = mainCamera;
             this.zScale = zScale;
             this.pyramidLevels = pyramidLevels;
@@ -30,6 +33,8 @@ namespace ProceduralMeshes {
             this.numberOfTextures = numberOfTextures;
             this.maximumDescentLevel = maximumDescentLevel;
             this.textureOrder = textureOrder;
+            this.DEMwidth = DEMwidth;
+            this.DEMheight = DEMheight;
             tileRanges = new List<int4>(pyramidLevels);
             for (int level = 0; level < pyramidLevels; level++) {
                 tileRanges.Add(new int4((int)Math.Pow(2,pyramidLevels-level-1), (int)Math.Pow(2,pyramidLevels-level-1), 0, 0));
@@ -46,11 +51,8 @@ namespace ProceduralMeshes {
             // Work in progress
             if (level<pyramidLevels)
             {
-                tileRanges[pyramidLevels-level] = new int4(Math.Min(tileRanges[level].x,tileCoords.x),Math.Min(tileRanges[level].y,tileCoords.y),Math.Min(tileRanges[level].z,tileCoords.x+1),Math.Min(tileRanges[level].w,tileCoords.y+1));
+                tileRanges[pyramidLevels-level-1] = new int4(Math.Min(tileRanges[level].x,tileCoords.x),Math.Min(tileRanges[level].y,tileCoords.y),Math.Max(tileRanges[level].z,tileCoords.x+1),Math.Max(tileRanges[level].w,tileCoords.y+1));
             }
-            //string levelPath = Path.Combine(Application.streamingAssetsPath, "Projects", projectName, level.ToString());
-            //string texturePattern = $"{tileCoords.x}_{tileCoords.y}*.png";
-            //List<string> newTextures = new List<string>(Directory.GetFiles(levelPath, texturePattern));
             bool descentNeeded = false;
             if (level<maximumDescentLevel)     
             {
@@ -69,7 +71,7 @@ namespace ProceduralMeshes {
                 List<List<int>> textureIndicesSubtiles = new List<List<int>>(4);
                 for (var j=0; j<4; j++)
                 {
-                    textureIndicesSubtiles.Insert(j,new List<int>(textureIndices));
+                    textureIndicesSubtiles.Add(new List<int>(textureIndices));
                 }
                 for (var i=0; i<textureIndices.Count; i++)
                 {
@@ -109,17 +111,23 @@ namespace ProceduralMeshes {
         }
 
         public void DetermineAll() {
-            Debug.Log(projectName);
-            List<int> textureIndices =Enumerable.Range(0, numberOfTextures).ToList();
+            List<int> textureIndices = Enumerable.Range(0, numberOfTextures).ToList();
             Determine(0,new int2(0,0),textureIndices);
-            Debug.Log(tileRanges);
+            Debug.Log("before");
+            Debug.Log(deepestLevel);
+            Debug.Log(numberOfLevels);
+            Debug.Log(tileRanges[tileRanges.Count-1]);
             FixTileRanges();
+            Debug.Log("after");
+            Debug.Log(deepestLevel);
+            Debug.Log(numberOfLevels);
+            Debug.Log(tileRanges[tileRanges.Count-1]);
             texturesToGenerate=SortAssetPaths(texturesToGenerate,textureOrder);
         }
 
         public void FixTileRanges()
         {
-            deepestLevel=pyramidLevels;
+            deepestLevel=pyramidLevels-1;
             numberOfLevels=pyramidLevels;
             for (var i=0; i<pyramidLevels-1; i++)
             {
@@ -146,16 +154,19 @@ namespace ProceduralMeshes {
                     {
                         tileRanges[i]=new int4(tileRanges[i].x,tileRanges[i].y,tileRanges[i].z,tileRanges[i].w+1);
                     }
-                    int testLength = (int)Math.Pow(2,pyramidLevels-i-1);
-                    if (tileRanges[i].x == 0 && tileRanges[i].y == 0 && tileRanges[i].z == testLength && tileRanges[i].w == testLength)
+                    int testLength = (int)Math.Ceiling(DEMwidth/Math.Pow(2,i));
+                    int testHeight = (int)Math.Ceiling(DEMheight/Math.Pow(2,i));
+                    if (tileRanges[i].x == 0 && tileRanges[i].y == 0 && tileRanges[i].z >= testLength && tileRanges[i].w >= testHeight)
                     {
-                        numberOfLevels = deepestLevel-pyramidLevels+i;
+                        tileRanges[i] = new int4(0,0,testLength,testHeight);
+                        numberOfLevels = deepestLevel-pyramidLevels+i+2;
                         break;
                     }
                     else
                     {
-                        testLength/=2;
-                        tileRanges[i+1] = new int4(Math.Max(0,Math.Min(tileRanges[i+1].x,tileRanges[i].x/2-1)),Math.Max(0,Math.Min(tileRanges[i+1].y,tileRanges[i].y/2-1)),Math.Min(testLength,Math.Max(tileRanges[i+1].z,tileRanges[i].z/2+1)),Math.Min(testLength,Math.Max(tileRanges[i+1].w,tileRanges[i].w/2+1)));
+                        testLength = (int)Math.Ceiling(DEMwidth/Math.Pow(2,i+1));
+                        testHeight = (int)Math.Ceiling(DEMheight/Math.Pow(2,i+1));
+                        tileRanges[i+1] = new int4(Math.Max(0,Math.Min(tileRanges[i+1].x,tileRanges[i].x/2-1)),Math.Max(0,Math.Min(tileRanges[i+1].y,tileRanges[i].y/2-1)),Math.Min(testLength,Math.Max(tileRanges[i+1].z,tileRanges[i].z/2+1)),Math.Min(testHeight,Math.Max(tileRanges[i+1].w,tileRanges[i].w/2+1)));
                     }
                 }
             }

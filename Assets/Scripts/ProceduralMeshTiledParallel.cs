@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -13,9 +14,9 @@ namespace ProceduralMeshes {
 	public sealed class ProceduralMeshTiledParallel : MonoBehaviour {
 
 		public Camera mainCamera;
-		public int deepestLevel;
-		public int numberOfLevels;
-		public List<int4> tileRanges;
+		int deepestLevel;
+		int numberOfLevels;
+		List<int4> tileRanges;
 
 		public string projectName = "Antarctica";
 		public float VE = 1;
@@ -26,6 +27,8 @@ namespace ProceduralMeshes {
 		ElevationMetadata elevationInfo;
 		AllTexturesMetadata texturesInfo;
 		MeshTilingSchemeDetermine meshTilingScheme;
+		int DEMwidth;
+		int DEMheight;
 		float verticalScaleFactor;
 		float zScaleFactor;
 		float midH;
@@ -39,12 +42,16 @@ namespace ProceduralMeshes {
         List<string> textureNames;
 		int numberOfTextures;
 		int maximumDescentLevel;
+		Vector3 cameraPosition;
+		Quaternion cameraRotation;
 
 		void Awake () {
 			elevationInfo = new ElevationMetadata();
 			texturesInfo = new AllTexturesMetadata();
 			mesh = new Mesh { name = "Procedural Tiled Mesh" };
 			GetComponent<MeshFilter>().mesh = mesh;
+			cameraPosition = mainCamera.transform.position;
+			cameraRotation = mainCamera.transform.rotation;
 		}
 
 		void Start () => regenerationRequested = true;
@@ -54,6 +61,16 @@ namespace ProceduralMeshes {
 		void Update () {
 
 			if (!regenerationRequested || generationInProgress) {
+				if (mainCamera.transform.position != cameraPosition)
+				{
+					cameraPosition = mainCamera.transform.position;
+					regenerationRequested = true;
+				}
+				else if (mainCamera.transform.rotation != cameraRotation)
+				{
+					cameraRotation = mainCamera.transform.rotation;
+					regenerationRequested = true;
+				}
 				return;
 			}
 
@@ -72,8 +89,10 @@ namespace ProceduralMeshes {
 		}
 
 		void LoadProjectMetadata () {
-			elevationInfo.LoadMetadata($"Assets/StreamingAssets/Projects/{projectName}/dem_metadata.json");
+			elevationInfo.LoadMetadata(Path.Combine(Application.streamingAssetsPath, "Projects", projectName,"dem_metadata.json"));
 			texturesInfo.LoadMetadataFolder(projectName);
+			DEMwidth = elevationInfo.width;
+			DEMheight = elevationInfo.height;
 			verticalScaleFactor = VE / (256*elevationInfo.dem_resolution_x);
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
 			midH = elevationInfo.mid_h;
@@ -88,7 +107,7 @@ namespace ProceduralMeshes {
 					maximumDescentLevel = Math.Max(maximumDescentLevel, textureLevel);
 				}
 			}
-			deepestLevel = pyramidLevels;
+			deepestLevel = pyramidLevels-1;
 			numberOfLevels = pyramidLevels;
             tileRanges = new List<int4>(pyramidLevels);
             for (int level = 0; level < pyramidLevels; level++) {
@@ -102,8 +121,8 @@ namespace ProceduralMeshes {
 			}
 		}
 
-		public int VertexCount => CalculateCounts().vertexCount;
-		public int IndexCount => CalculateCounts().triangleCount * 3;
+		int VertexCount = 0;
+		int IndexCount = 0;
 
 		public TileLoadWork[] BuildTileLoadWork () {
 			ValidateInputs();
@@ -471,11 +490,15 @@ namespace ProceduralMeshes {
 		}
 
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
-			/*var meshTilingScheme = new MeshTilingSchemeDetermine(mainCamera,zScaleFactor,pyramidLevels,projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel,textureOrder);
+			var meshTilingScheme = new MeshTilingSchemeDetermine(mainCamera,zScaleFactor,pyramidLevels,projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel,textureOrder, DEMwidth, DEMheight);
 			meshTilingScheme.DetermineAll();
 			deepestLevel = meshTilingScheme.deepestLevel;
 			numberOfLevels = meshTilingScheme.numberOfLevels;
-			tileRanges = meshTilingScheme.tileRanges.GetRange(pyramidLevels-deepestLevel,pyramidLevels-deepestLevel+numberOfLevels);*/
+			Debug.Log(new int3(pyramidLevels,deepestLevel,numberOfLevels));
+			tileRanges = meshTilingScheme.tileRanges.GetRange(pyramidLevels-deepestLevel-1,numberOfLevels);
+			VertexCount = CalculateCounts().vertexCount;
+			IndexCount = CalculateCounts().triangleCount * 3;
+			Debug.Log(new int2(VertexCount,IndexCount));
 			NativeArray<float> tileSamples = default;
 			try {
 				TileLoadWork[] tileWork;

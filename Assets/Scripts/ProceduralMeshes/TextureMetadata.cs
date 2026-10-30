@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using Unity.Collections;
+using Unity.Mathematics;
 
 namespace ProceduralMeshes {
 
@@ -15,7 +16,7 @@ namespace ProceduralMeshes {
 
         public void LoadMetadataFolder(string projectName) {
             string textureMetadataPattern = $"texture*metadata.json";
-            List<string> metadataFiles = new List<string>(Directory.GetFiles("Assets/StreamingAssets/Projects/{projectName}", textureMetadataPattern));
+            List<string> metadataFiles = new List<string>(Directory.GetFiles($"Assets/StreamingAssets/Projects/{projectName}", textureMetadataPattern));
             numberOfTextures = metadataFiles.Count;
             pyramidLevels = new List<int>(numberOfTextures);
             textureNames = new List<string>(numberOfTextures);
@@ -23,8 +24,8 @@ namespace ProceduralMeshes {
             {
                 TextureMetadata currentTextureMetadata = new TextureMetadata();
                 currentTextureMetadata.TextureLoadMetadata($"Assets/StreamingAssets/Projects/{projectName}/texture_{i.ToString()}_metadata.json");
-                textureNames[i] = currentTextureMetadata.name;
-                pyramidLevels[i] = currentTextureMetadata.pyramid_levels;             
+                textureNames.Add(currentTextureMetadata.name);
+                pyramidLevels.Add(currentTextureMetadata.pyramid_levels);             
             }
         }
 
