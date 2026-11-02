@@ -457,6 +457,7 @@ namespace ProceduralMeshes {
 						tile.level,
 						tile.tileX,
 						tile.tileZ,
+						midH,
 						samples => tileSamples = samples,
 						error => loadError = error
 					);
@@ -490,15 +491,13 @@ namespace ProceduralMeshes {
 		}
 
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
-			var meshTilingScheme = new MeshTilingSchemeDetermine(mainCamera,zScaleFactor,pyramidLevels,projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel,textureOrder, DEMwidth, DEMheight);
+			var meshTilingScheme = new MeshTilingSchemeDetermine(mainCamera,zScaleFactor,pyramidLevels,projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel,textureOrder, DEMwidth, DEMheight, -midH*verticalScaleFactor);
 			meshTilingScheme.DetermineAll();
 			deepestLevel = meshTilingScheme.deepestLevel;
 			numberOfLevels = meshTilingScheme.numberOfLevels;
-			Debug.Log(new int3(pyramidLevels,deepestLevel,numberOfLevels));
 			tileRanges = meshTilingScheme.tileRanges.GetRange(pyramidLevels-deepestLevel-1,numberOfLevels);
 			VertexCount = CalculateCounts().vertexCount;
 			IndexCount = CalculateCounts().triangleCount * 3;
-			Debug.Log(new int2(VertexCount,IndexCount));
 			NativeArray<float> tileSamples = default;
 			try {
 				TileLoadWork[] tileWork;

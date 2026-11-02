@@ -532,7 +532,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshes.ProceduralMeshTiledParallel
   mainCamera: {fileID: 347789240}
-  projectName: Antarctica
+  projectName: PeaceVallis
   VE: 1
   textureOrder: 000000000100000002000000
   elevationLoader: {fileID: 0}

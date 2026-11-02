@@ -70,5 +70,55 @@ namespace ProceduralMeshes {
 
 				onLoaded(samples);
 		}
+
+		public IEnumerator LoadTile (
+			string projectName, int level, int x, int z, float midH,
+			Action<NativeArray<float>> onLoaded, Action<string> onError = null
+		) {
+			string relativePath = Path.Combine(
+				"Projects", projectName, level.ToString(), $"{x}_{z}.bytes"
+			).Replace('\\', '/');
+			byte[] bytes = null;
+
+			#if UNITY_EDITOR
+			string editorPath = Path.Combine(Application.streamingAssetsPath, relativePath);
+			if (File.Exists(editorPath)) {
+				try {
+					bytes = File.ReadAllBytes(editorPath);
+				}
+				catch (Exception) {
+					// Use midH fallback below.
+				}
+			}
+			else
+			#endif
+			{
+				string path = Path.Combine(Application.streamingAssetsPath, relativePath).Replace('\\', '/');
+				using (UnityWebRequest request = UnityWebRequest.Get(path)) {
+					yield return request.SendWebRequest();
+
+					if (request.result == UnityWebRequest.Result.Success) {
+						bytes = request.downloadHandler.data;
+					}
+					// On request failure, use the midH fallback below.
+				}
+			}
+
+			if (onLoaded == null) {
+				onError?.Invoke("An elevation tile callback is required.");
+				yield break;
+			}
+
+			bool hasValidTile = bytes != null && bytes.Length == SampleCount * sizeof(float);
+			NativeArray<float> samples = new NativeArray<float>(SampleCount, Allocator.Persistent);
+
+			for (int i = 0; i < SampleCount; i++) {
+				samples[i] = hasValidTile
+					? BitConverter.ToSingle(bytes, i * sizeof(float))
+					: midH;
+			}
+
+			onLoaded(samples);
+		}
 	}
 }

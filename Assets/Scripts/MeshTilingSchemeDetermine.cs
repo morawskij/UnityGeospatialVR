@@ -24,7 +24,9 @@ namespace ProceduralMeshes {
         List<int> textureOrder;
         public string projectName;
 
-        public MeshTilingSchemeDetermine(Camera mainCamera, float zScale, int pyramidLevels, string projectName, List<int> texturePyramidLevels, int numberOfTextures, int maximumDescentLevel, List<int> textureOrder, int DEMwidth, int DEMheight) {
+        float minimumHeight;
+
+        public MeshTilingSchemeDetermine(Camera mainCamera, float zScale, int pyramidLevels, string projectName, List<int> texturePyramidLevels, int numberOfTextures, int maximumDescentLevel, List<int> textureOrder, int DEMwidth, int DEMheight, float minimumHeight) {
             this.mainCamera = mainCamera;
             this.zScale = zScale;
             this.pyramidLevels = pyramidLevels;
@@ -35,6 +37,7 @@ namespace ProceduralMeshes {
             this.textureOrder = textureOrder;
             this.DEMwidth = DEMwidth;
             this.DEMheight = DEMheight;
+            this.minimumHeight = minimumHeight;
             tileRanges = new List<int4>(pyramidLevels);
             for (int level = 0; level < pyramidLevels; level++) {
                 tileRanges.Add(new int4((int)Math.Pow(2,pyramidLevels-level-1), (int)Math.Pow(2,pyramidLevels-level-1), 0, 0));
@@ -43,69 +46,77 @@ namespace ProceduralMeshes {
 
         public int deepestLevel=0;
         public int numberOfLevels=1;
+        public int rejections = 0;
         public List<int4> tileRanges;
 
         public List<string> texturesToGenerate = new List<string>();
 
         public void Determine (int level, int2 tileCoords, List<int> textureIndices) {
             // Work in progress
-            if (level<pyramidLevels)
+            float levelScale = 1f / (1 << level);
+            float4 physicalExtent = new float4(tileCoords.x*levelScale,tileCoords.y*levelScale,(tileCoords.x+1)*levelScale,(tileCoords.y+1)*levelScale);
+            if (WeCareAboutThisTile(physicalExtent,0.3f))
             {
-                tileRanges[pyramidLevels-level-1] = new int4(Math.Min(tileRanges[level].x,tileCoords.x),Math.Min(tileRanges[level].y,tileCoords.y),Math.Max(tileRanges[level].z,tileCoords.x+1),Math.Max(tileRanges[level].w,tileCoords.y+1));
-            }
-            bool descentNeeded = false;
-            if (level<maximumDescentLevel)     
-            {
-                float levelScale = 1f / (1 << level);
-                float4 physicalExtent = new float4(tileCoords.x*levelScale,tileCoords.y*levelScale,(tileCoords.x+1)*levelScale,(tileCoords.y+1)*levelScale);
-                Vector3 extentPixelOne = mainCamera.WorldToScreenPoint(new Vector3(physicalExtent.x,0,physicalExtent.y));
-                Vector3 extentPixelTwo = mainCamera.WorldToScreenPoint(new Vector3(physicalExtent.z,0,physicalExtent.y));
-                Vector3 extentPixelThree = mainCamera.WorldToScreenPoint(new Vector3(physicalExtent.z,0,physicalExtent.w));
-                Vector3 extentPixelFour = mainCamera.WorldToScreenPoint(new Vector3(physicalExtent.x,0,physicalExtent.w));
-                float4 distances = new float4(Vector3.Distance(extentPixelOne,extentPixelTwo),Vector3.Distance(extentPixelTwo,extentPixelThree),Vector3.Distance(extentPixelThree,extentPixelFour),Vector3.Distance(extentPixelFour,extentPixelOne)); 
-                float maxObservedTileSide = Math.Max(Math.Max(distances.x,distances.y),Math.Max(distances.z,distances.w));
-                descentNeeded = maxObservedTileSide > 256f;
-            }
-            if (descentNeeded)
-            {
-                List<List<int>> textureIndicesSubtiles = new List<List<int>>(4);
-                for (var j=0; j<4; j++)
+                if (level<pyramidLevels)
                 {
-                    textureIndicesSubtiles.Add(new List<int>(textureIndices));
+                    tileRanges[pyramidLevels-level-1] = new int4(Math.Min(tileRanges[level].x,tileCoords.x),Math.Min(tileRanges[level].y,tileCoords.y),Math.Max(tileRanges[level].z,tileCoords.x+1),Math.Max(tileRanges[level].w,tileCoords.y+1));
                 }
-                for (var i=0; i<textureIndices.Count; i++)
+                bool descentNeeded = false;
+                if (level<maximumDescentLevel)     
                 {
-                    bool we_need_this_tile = !descentNeeded || texturePyramidLevels[textureIndices[i]]==level+1;
+                    Vector3 extentPixelOne = mainCamera.WorldToScreenPoint(new Vector3(physicalExtent.x,0,physicalExtent.y));
+                    Vector3 extentPixelTwo = mainCamera.WorldToScreenPoint(new Vector3(physicalExtent.z,0,physicalExtent.y));
+                    Vector3 extentPixelThree = mainCamera.WorldToScreenPoint(new Vector3(physicalExtent.z,0,physicalExtent.w));
+                    Vector3 extentPixelFour = mainCamera.WorldToScreenPoint(new Vector3(physicalExtent.x,0,physicalExtent.w));
+                    float4 distances = new float4(Vector3.Distance(extentPixelOne,extentPixelTwo),Vector3.Distance(extentPixelTwo,extentPixelThree),Vector3.Distance(extentPixelThree,extentPixelFour),Vector3.Distance(extentPixelFour,extentPixelOne)); 
+                    float maxObservedTileSide = Math.Max(Math.Max(distances.x,distances.y),Math.Max(distances.z,distances.w));
+                    descentNeeded = maxObservedTileSide > 256f;
+                }
+                if (descentNeeded)
+                {
+                    List<List<int>> textureIndicesSubtiles = new List<List<int>>(4);
                     for (var j=0; j<4; j++)
                     {
-                        string child_texture_tile = Path.Combine(Application.streamingAssetsPath, "Projects", projectName, (level+1).ToString(),$"{2*tileCoords.x+j/2}_{tileCoords.y+j%2}_{textureIndices[i]}.png");
-                        if (!File.Exists(child_texture_tile))
+                        textureIndicesSubtiles.Add(new List<int>(textureIndices));
+                    }
+                    for (var i=0; i<textureIndices.Count; i++)
+                    {
+                        bool we_need_this_tile = !descentNeeded || texturePyramidLevels[textureIndices[i]]==level+1;
+                        for (var j=0; j<4; j++)
                         {
-                            we_need_this_tile = true;
-                            textureIndicesSubtiles[j].Remove(textureIndices[i]);
+                            string child_texture_tile = Path.Combine(Application.streamingAssetsPath, "Projects", projectName, (level+1).ToString(),$"{2*tileCoords.x+j/2}_{tileCoords.y+j%2}_{textureIndices[i]}.png");
+                            if (!File.Exists(child_texture_tile))
+                            {
+                                we_need_this_tile = true;
+                                textureIndicesSubtiles[j].Remove(textureIndices[i]);
+                            }
+                        }
+                        if (we_need_this_tile)
+                        {
+                            string this_texture_tile = Path.Combine(Application.streamingAssetsPath, "Projects", projectName, level.ToString(),$"{tileCoords.x}_{tileCoords.y}_{textureIndices[i]}.png");
+                            texturesToGenerate.Add(this_texture_tile);
                         }
                     }
-                    if (we_need_this_tile)
+                    for (var j=0; j<4; j++)
+                    {
+                        if (textureIndicesSubtiles[j].Count > 0)
+                        {
+                            Determine(level+1,new int2(2*tileCoords.x+j/2,2*tileCoords.y+j%2),textureIndicesSubtiles[j]);                         
+                        }                        
+                    }       
+                }
+                else
+                {
+                    for (var i=0; i<textureIndices.Count; i++)
                     {
                         string this_texture_tile = Path.Combine(Application.streamingAssetsPath, "Projects", projectName, level.ToString(),$"{tileCoords.x}_{tileCoords.y}_{textureIndices[i]}.png");
                         texturesToGenerate.Add(this_texture_tile);
                     }
                 }
-                for (var j=0; j<4; j++)
-                {
-                    if (textureIndicesSubtiles[j].Count > 0)
-                    {
-                        Determine(level+1,new int2(2*tileCoords.x+j/2,2*tileCoords.y+j%2),textureIndicesSubtiles[j]);                         
-                    }                        
-                }       
             }
             else
             {
-                for (var i=0; i<textureIndices.Count; i++)
-                {
-                    string this_texture_tile = Path.Combine(Application.streamingAssetsPath, "Projects", projectName, level.ToString(),$"{tileCoords.x}_{tileCoords.y}_{textureIndices[i]}.png");
-                    texturesToGenerate.Add(this_texture_tile);
-                }
+                rejections++;
             }
 
         }
@@ -113,16 +124,10 @@ namespace ProceduralMeshes {
         public void DetermineAll() {
             List<int> textureIndices = Enumerable.Range(0, numberOfTextures).ToList();
             Determine(0,new int2(0,0),textureIndices);
-            Debug.Log("before");
-            Debug.Log(deepestLevel);
-            Debug.Log(numberOfLevels);
-            Debug.Log(tileRanges[tileRanges.Count-1]);
             FixTileRanges();
-            Debug.Log("after");
-            Debug.Log(deepestLevel);
-            Debug.Log(numberOfLevels);
-            Debug.Log(tileRanges[tileRanges.Count-1]);
             texturesToGenerate=SortAssetPaths(texturesToGenerate,textureOrder);
+            Debug.Log($"To generate per texture: {texturesToGenerate.Count/numberOfTextures}");
+            Debug.Log($"We rejected {rejections} tiles");
         }
 
         public void FixTileRanges()
@@ -140,34 +145,42 @@ namespace ProceduralMeshes {
                 {
                     if (tileRanges[i].x%2==1)
                     {
-                        tileRanges[i]=new int4(tileRanges[i].x-1,tileRanges[i].y,tileRanges[i].z,tileRanges[i].w);
+                        tileRanges[i]= new int4(tileRanges[i].x-1,tileRanges[i].y,tileRanges[i].z,tileRanges[i].w);
                     }
                     if (tileRanges[i].y%2==1)
                     {
-                        tileRanges[i]=new int4(tileRanges[i].x,tileRanges[i].y-1,tileRanges[i].z,tileRanges[i].w);
+                        tileRanges[i]= new int4(tileRanges[i].x,tileRanges[i].y-1,tileRanges[i].z,tileRanges[i].w);
                     }
                     if (tileRanges[i].z%2==1)
                     {
-                        tileRanges[i]=new int4(tileRanges[i].x,tileRanges[i].y,tileRanges[i].z+1,tileRanges[i].w);
+                        tileRanges[i]= new int4(tileRanges[i].x,tileRanges[i].y,tileRanges[i].z+1,tileRanges[i].w);
                     }
                     if (tileRanges[i].w%2==1)
                     {
-                        tileRanges[i]=new int4(tileRanges[i].x,tileRanges[i].y,tileRanges[i].z,tileRanges[i].w+1);
+                        tileRanges[i]= new int4(tileRanges[i].x,tileRanges[i].y,tileRanges[i].z,tileRanges[i].w+1);
                     }
-                    int testLength = (int)Math.Ceiling(DEMwidth/Math.Pow(2,i));
-                    int testHeight = (int)Math.Ceiling(DEMheight/Math.Pow(2,i));
-                    if (tileRanges[i].x == 0 && tileRanges[i].y == 0 && tileRanges[i].z >= testLength && tileRanges[i].w >= testHeight)
+                    int testLength = (int)Math.Ceiling(DEMwidth/Math.Pow(2,i+8));
+                    int testHeight = (int)Math.Ceiling(DEMheight/Math.Pow(2,i+8));
+                    /*if (tileRanges[i].z > testLength)
+                    {
+                         tileRanges[i] = new int4(tileRanges[i].x,tileRanges[i].y,testLength,tileRanges[i].w);
+                    }
+                    if (tileRanges[i].w > testHeight)
+                    {
+                        tileRanges[i] =  new int4(tileRanges[i].x,tileRanges[i].y,tileRanges[i].z,testHeight);
+                    }
+                    if (tileRanges[i].x == 0 && tileRanges[i].y == 0 && tileRanges[i].z == testLength && tileRanges[i].w == testHeight)
                     {
                         tileRanges[i] = new int4(0,0,testLength,testHeight);
                         numberOfLevels = deepestLevel-pyramidLevels+i+2;
                         break;
                     }
                     else
-                    {
-                        testLength = (int)Math.Ceiling(DEMwidth/Math.Pow(2,i+1));
-                        testHeight = (int)Math.Ceiling(DEMheight/Math.Pow(2,i+1));
+                    {*/
+                        testLength = (int)Math.Ceiling(DEMwidth/Math.Pow(2,i+9));
+                        testHeight = (int)Math.Ceiling(DEMheight/Math.Pow(2,i+9));
                         tileRanges[i+1] = new int4(Math.Max(0,Math.Min(tileRanges[i+1].x,tileRanges[i].x/2-1)),Math.Max(0,Math.Min(tileRanges[i+1].y,tileRanges[i].y/2-1)),Math.Min(testLength,Math.Max(tileRanges[i+1].z,tileRanges[i].z/2+1)),Math.Min(testHeight,Math.Max(tileRanges[i+1].w,tileRanges[i].w/2+1)));
-                    }
+                    //}
                 }
             }
         }
@@ -212,5 +225,21 @@ namespace ProceduralMeshes {
                 .Select(item => item.Path)
                 .ToList();
         }    
+
+        public bool WeCareAboutThisPoint (Vector3 viewportPoint, float margin)
+        {
+            Debug.Log($"Viewport point: ({viewportPoint.x},{viewportPoint.y})");
+            return viewportPoint.x >= -margin && viewportPoint.x <= 1f + margin &&
+                   viewportPoint.y >= -margin && viewportPoint.y <= 1f + margin; 
+        }
+
+        public bool WeCareAboutThisTile (float4 physicalExtent, float margin)
+        {
+            Vector3 extentOne = mainCamera.WorldToViewportPoint(new Vector3(physicalExtent.x,minimumHeight,physicalExtent.y));
+            Vector3 extentTwo = mainCamera.WorldToViewportPoint(new Vector3(physicalExtent.z,minimumHeight,physicalExtent.y));
+            Vector3 extentThree = mainCamera.WorldToViewportPoint(new Vector3(physicalExtent.z,minimumHeight,physicalExtent.w));
+            Vector3 extentFour = mainCamera.WorldToViewportPoint(new Vector3(physicalExtent.x,minimumHeight,physicalExtent.w));
+            return WeCareAboutThisPoint(extentOne,margin) || WeCareAboutThisPoint(extentTwo,margin) || WeCareAboutThisPoint(extentThree,margin) || WeCareAboutThisPoint(extentFour,margin);
+        }
     }
 }
