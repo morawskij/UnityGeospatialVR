@@ -22,6 +22,7 @@ namespace ProceduralMeshes {
 		public float VE = 1;
 		
 		public List<int> textureOrder;
+		public List<float> textureOpacities;
 		[SerializeField] StreamingAssetsElevationLoader elevationLoader;
 
 		ElevationMetadata elevationInfo;
@@ -37,6 +38,8 @@ namespace ProceduralMeshes {
 		Mesh mesh;
 		bool regenerationRequested;
 		bool generationInProgress;
+		[NonSerialized] float validatedVE;
+		[NonSerialized] bool hasValidatedVE;
 
         List<int> texturePyramidLevels;
         List<string> textureNames;
@@ -56,7 +59,19 @@ namespace ProceduralMeshes {
 
 		void Start () => regenerationRequested = true;
 
-		void OnValidate () => regenerationRequested = true;
+		void OnValidate () {
+			if (!hasValidatedVE || VE != validatedVE) {
+				transform.localScale = new Vector3(1f, VE, 1f);
+				validatedVE = VE;
+				if (!hasValidatedVE) {
+					regenerationRequested = true;
+					hasValidatedVE = true;
+				}
+				return;
+			}
+
+			regenerationRequested = true;
+		}
 
 		void Update () {
 
@@ -93,7 +108,7 @@ namespace ProceduralMeshes {
 			texturesInfo.LoadMetadataFolder(projectName);
 			DEMwidth = elevationInfo.width;
 			DEMheight = elevationInfo.height;
-			verticalScaleFactor = VE / (256*elevationInfo.dem_resolution_x);
+			verticalScaleFactor = 1f / (256*elevationInfo.dem_resolution_x);
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
 			midH = elevationInfo.mid_h;
 			hRange = elevationInfo.h_range;
@@ -491,8 +506,15 @@ namespace ProceduralMeshes {
 		}
 
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
-			var meshTilingScheme = new MeshTilingSchemeDetermine(mainCamera,zScaleFactor,pyramidLevels,projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel,textureOrder, DEMwidth, DEMheight, -midH*verticalScaleFactor);
-			meshTilingScheme.DetermineAll();
+			Texture2D previousFinalTexture = meshTilingScheme != null
+				? meshTilingScheme.finalTexture
+				: null;
+			meshTilingScheme = new MeshTilingSchemeDetermine(mainCamera,zScaleFactor,pyramidLevels,projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel,textureOrder, DEMwidth, DEMheight, -midH*verticalScaleFactor);
+			meshTilingScheme.DetermineAll(textureOrder, textureOpacities);
+			GetComponent<MeshRenderer>().material.mainTexture = meshTilingScheme.finalTexture;
+			if (previousFinalTexture != null) {
+				Destroy(previousFinalTexture);
+			}
 			deepestLevel = meshTilingScheme.deepestLevel;
 			numberOfLevels = meshTilingScheme.numberOfLevels;
 			tileRanges = meshTilingScheme.tileRanges.GetRange(pyramidLevels-deepestLevel-1,numberOfLevels);
