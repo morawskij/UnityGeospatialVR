@@ -511,7 +511,7 @@ GameObject:
   - component: {fileID: 980812887}
   - component: {fileID: 980812886}
   - component: {fileID: 980812885}
-  - component: {fileID: 980812884}
+  - component: {fileID: 980812889}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -519,28 +519,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &980812884
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 980812883}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 10bc750d408dc5ff9af048f436ffc927, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshes.ProceduralMeshTiledParallel
-  mainCamera: {fileID: 347789240}
-  projectName: PeaceVallis
-  VE: 1
-  textureOrder: 00000000030000000200000001000000
-  textureOpacities:
-  - 1
-  - 0
-  - 0.5
-  - 0
-  elevationLoader: {fileID: 0}
 --- !u!114 &980812885
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -625,6 +603,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &980812889
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 980812883}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92425b790aa7b7f2baef44b3cff3830f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshes.ProceduralMeshSimplerApproach
+  mainCamera: {fileID: 347789240}
+  projectName: Antarctica
+  VE: 1
+  textureOrder: 
+  textureOpacities: []
+  elevationLoader: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
