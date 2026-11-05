@@ -16,14 +16,14 @@ namespace ProceduralMeshes {
 
         public void LoadMetadataFolder(string projectName) {
             string textureMetadataPattern = $"texture*metadata.json";
-            List<string> metadataFiles = new List<string>(Directory.GetFiles($"Assets/StreamingAssets/Projects/{projectName}", textureMetadataPattern));
+            List<string> metadataFiles = new List<string>(Directory.GetFiles($"Projects/{projectName}", textureMetadataPattern));
             numberOfTextures = metadataFiles.Count;
             pyramidLevels = new List<int>(numberOfTextures);
             textureNames = new List<string>(numberOfTextures);
             for (int i = 0; i<numberOfTextures; i++)
             {
                 TextureMetadata currentTextureMetadata = new TextureMetadata();
-                currentTextureMetadata.TextureLoadMetadata($"Assets/StreamingAssets/Projects/{projectName}/texture_{i.ToString()}_metadata.json");
+                currentTextureMetadata.TextureLoadMetadata($"Projects/{projectName}/texture_{i.ToString()}_metadata.json");
                 textureNames.Add(currentTextureMetadata.name);
                 pyramidLevels.Add(currentTextureMetadata.pyramid_levels);             
             }
