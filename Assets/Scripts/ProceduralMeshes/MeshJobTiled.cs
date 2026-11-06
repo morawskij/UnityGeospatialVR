@@ -28,9 +28,9 @@ namespace ProceduralMeshes {
 				job.generator.VerticalScaleFactor = VerticalScaleFactor;
 				job.generator.elevationArray = elevationArray;
                 job.streams.Setup(
-                    meshData, mesh.bounds = job.generator.Bounds, 65536, 390150
+                    meshData, mesh.bounds = job.generator.Bounds, 66049, 393216
                 );
-                return job.ScheduleParallel(256, 1, dependency);
+                return job.ScheduleParallel(257, 1, dependency);
 
                 }
 

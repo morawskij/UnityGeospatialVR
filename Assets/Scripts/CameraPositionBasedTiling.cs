@@ -66,8 +66,6 @@ namespace ProceduralMeshes {
                 float pixelSizeAtCameraHeight = cameraHeight * pixelAngleFactor;
                 deepestLevel = (int)Mathf.Min(Mathf.Max(Mathf.Ceil(Mathf.Log(1f/pixelSizeAtCameraHeight,2))-8, 0), maximumDescentLevel - 1);
             }
-            Debug.Log("Deepest level");
-            Debug.Log(deepestLevel);
             if (deepestLevel == 0) {
                 numberOfLevels = 1;
                 tileRanges[0] = new int4(0, 0, 1, 1);

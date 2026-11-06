@@ -19,7 +19,7 @@ namespace ProceduralMeshes {
 		public List<int4> tileRanges;
 
 		public string projectName = "Antarctica";
-		public float VE = 1;
+		public float VE = 1f;
 		
 		public List<int> textureOrder;
 		public List<float> textureOpacities;
@@ -51,6 +51,9 @@ namespace ProceduralMeshes {
 		TileFamily tileFamily;
 		List<GameObject> tileObjects = new List<GameObject>();
 
+		int generateRarely = 50;
+		int generateCounter = 50;
+
 		void Awake () {
 			elevationInfo = new ElevationMetadata();
 			texturesInfo = new AllTexturesMetadata();
@@ -77,7 +80,7 @@ namespace ProceduralMeshes {
 				}
 				return;
 			}
-
+			generateCounter=50;
 			regenerationRequested = true;
 		}
 
@@ -96,7 +99,6 @@ namespace ProceduralMeshes {
 				}
 				return;
 			}
-
 			regenerationRequested = false;
 			LoadProjectMetadata();
 
@@ -107,9 +109,18 @@ namespace ProceduralMeshes {
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
 			//meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel, textureOrder, -midH, roughTopography);
 			//meshTilingScheme.DetermineTileRanges(0.3f);
-			tileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures,textureOrder, textureOpacities);
-			tileFamily.GenerateTileMeshes();
-			CreateTileObjects();
+			if (generateCounter >= generateRarely)
+			{
+				tileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures,textureOrder, textureOpacities);
+				tileFamily.GenerateTileMeshes();
+				CreateTileObjects();		
+				generateCounter = 0;		
+			}
+			else
+			{
+				generationInProgress = false;
+				generateCounter++;
+			}
 			yield break;
 		}
 

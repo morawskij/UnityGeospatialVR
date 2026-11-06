@@ -4,12 +4,13 @@ using System.IO;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Networking;
+using Unity.Mathematics;
 
 namespace ProceduralMeshes {
 
 	public sealed class ExternalElevationLoader {
 
-		int SampleCount = (int)Math.Pow(2,16);
+		int SampleCount = 66049;
 		public NativeArray<float> LoadTile (
 			string projectName, int level, int x, int z, float midH
 		) {
@@ -18,8 +19,6 @@ namespace ProceduralMeshes {
 			).Replace('\\', '/');
 			byte[] bytes = null;
 			bool hasValidTile = true;
-			float minimumH = 1000f;
-			float maximumH = -5000f;
 			try {
 				bytes = File.ReadAllBytes(relativePath);
 			}
@@ -36,10 +35,7 @@ namespace ProceduralMeshes {
 				samples[i] = hasValidTile
 					? BitConverter.ToSingle(bytes, i * sizeof(float))
 					: midH;
-				if (samples[i] < minimumH) minimumH = samples[i];
-				if (samples[i] > maximumH) maximumH = samples[i];
 			}
-			Debug.Log($"Tile {level}/{x}/{z} loaded. minH: {minimumH}, maxH: {maximumH}");
 
 			return samples;
 		}

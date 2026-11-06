@@ -24,22 +24,22 @@ namespace ProceduralMeshes {
 		float baseX => tileX / Mathf.Pow(2f, level);
 		float baseZ => tileZ * zScaleFactor / Mathf.Pow(2f, level);
 		public void Execute<S> (int z, S streams) where S : struct, IMeshStreams {
-			int vi = 256 * z, ti = 510 * (z-1);
+			int vi = 257 * z, ti = 512 * (z-1);
 			float baseTexX = 0f;
 			float baseTexZ = z * dT;
-			for (int x = 0; x < 256; x++, vi++, ti += 2, baseTexX += dT) {
+			for (int x = 0; x < 257; x++, vi++, ti += 2, baseTexX += dT) {
 				var vertex = new Vertex();
 				vertex.position.x = baseX + x * scaleFactor;
 				vertex.position.z = baseZ + z * scaleFactorZ;
-				vertex.position.y = (elevationArray[z * 256 + x] - midH) * VerticalScaleFactor;
+				vertex.position.y = (elevationArray[z * 257 + x] - midH) * VerticalScaleFactor;
 				vertex.normal.y = 1f;
 				vertex.texCoord0 = float2(baseTexX,baseTexZ);
 				vertex.tangent.xw = float2(1f, -1f);
 				streams.SetVertex(vi, vertex);
 				if (x>0 && z>0) {
-					int cellStart = vi - 257;
-					streams.SetTriangle(ti - 2, cellStart + int3(0, 256, 1));
-					streams.SetTriangle(ti - 1, cellStart + int3(1, 256, 257));
+					int cellStart = vi - 258;
+					streams.SetTriangle(ti - 2, cellStart + int3(0, 257, 1));
+					streams.SetTriangle(ti - 1, cellStart + int3(1, 257, 258));
 				}
 			}
 

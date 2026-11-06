@@ -176,19 +176,24 @@ namespace ProceduralMeshes {
                     $"{tile.x}_{tile.z}_{textureOrder[i]}.png"
                 );
                 var texture = new Texture2D(256, 256, TextureFormat.RGBA32, false);
-                if (!ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false))
+                var newPixels = new Color[65536];
+                try
                 {
-                    UnityEngine.Object.Destroy(texture);
-                    throw new InvalidDataException($"Could not load tile texture: {path}");
+                    ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false);
+                    newPixels = texture.GetPixels();                 
                 }
-                var newPixels = texture.GetPixels();
+                catch (Exception)
+                {
+                    
+                    Array.Fill(newPixels, Color.clear); 
+                }
                 for (var j=0; j<pixels.Length; j++)
                 {
                     Color source = newPixels[j];
                     source.a *= textureOpacities[textureOrder[i]];
                     pixels[j] = Over(source, pixels[j]);
                 }
-                UnityEngine.Object.Destroy(texture);
+                UnityEngine.Object.Destroy(texture);   
             }
             ultimateTexture.SetPixels(pixels);
             ultimateTexture.Apply();
