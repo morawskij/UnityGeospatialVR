@@ -18,11 +18,14 @@ namespace ProceduralMeshes {
         List<Texture2D> tileTextures;
         string projectName;
         ExternalElevationLoader elevationLoader;
+        int numberOfTextures;
+		List<int> textureOrder;
+		List<float> textureOpacities;
 		float midH;
 		float hRange;
 		float zScaleFactor;
         float verticalScaleFactor;
-        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor)
+        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities)
         {
             this.deepestLevel = deepestLevel;
             this.numberOfLevels = numberOfLevels;
@@ -35,6 +38,9 @@ namespace ProceduralMeshes {
             this.elevationLoader = elevationLoader;
             this.tileMeshes = new List<Mesh>();
             this.tileTextures = new List<Texture2D>();
+            this.numberOfTextures = numberOfTextures;
+            this.textureOrder = textureOrder;
+            this.textureOpacities = textureOpacities;
         }
 
         public void GenerateTileMeshes()
@@ -61,12 +67,13 @@ namespace ProceduralMeshes {
                                 continue;
                             }
 
+                            NativeArray<float> elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH);
                             work.Add(new TileWork
                             {
                                 level = demLevel,
                                 x = x,
                                 z = z,
-                                elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH)
+                                elevation = elevation
                             });
                         }
                     }
@@ -157,23 +164,37 @@ namespace ProceduralMeshes {
 
         Texture2D LoadTileTexture(TileWork tile)
         {
-            string path = Path.Combine(
-                Application.streamingAssetsPath,
-                "Projects",
-                projectName,
-                tile.level.ToString(),
-                $"{tile.x}_{tile.z}_0.png"
-            );
-            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            if (!ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false))
+            var ultimateTexture = new Texture2D(256, 256, TextureFormat.RGBA32, false);
+            var pixels = new Color[65536];
+            Array.Fill(pixels, Color.clear);
+            for (var i=0; i<numberOfTextures; i++)
             {
+                string path = Path.Combine(
+                    "Projects",
+                    projectName,
+                    tile.level.ToString(),
+                    $"{tile.x}_{tile.z}_{textureOrder[i]}.png"
+                );
+                var texture = new Texture2D(256, 256, TextureFormat.RGBA32, false);
+                if (!ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false))
+                {
+                    UnityEngine.Object.Destroy(texture);
+                    throw new InvalidDataException($"Could not load tile texture: {path}");
+                }
+                var newPixels = texture.GetPixels();
+                for (var j=0; j<pixels.Length; j++)
+                {
+                    Color source = newPixels[j];
+                    source.a *= textureOpacities[textureOrder[i]];
+                    pixels[j] = Over(source, pixels[j]);
+                }
                 UnityEngine.Object.Destroy(texture);
-                throw new InvalidDataException($"Could not load tile texture: {path}");
             }
-
-            texture.wrapMode = TextureWrapMode.Clamp;
-            texture.filterMode = FilterMode.Bilinear;
-            return texture;
+            ultimateTexture.SetPixels(pixels);
+            ultimateTexture.Apply();
+            ultimateTexture.wrapMode = TextureWrapMode.Clamp;
+            ultimateTexture.filterMode = FilterMode.Bilinear;
+            return ultimateTexture;
         }
 
         struct TileWork
@@ -192,6 +213,21 @@ namespace ProceduralMeshes {
 		static bool IsInside (int tileX, int tileZ, int4 innerRange) =>
             tileX >= innerRange.x && tileX < innerRange.z &&
             tileZ >= innerRange.y && tileZ < innerRange.w;
+        private static Color Over(Color source, Color destination)
+        {
+            float outAlpha = source.a + destination.a * (1f - source.a);
+            if (outAlpha <= 0f)
+                return Color.clear;
 
+            Color result;
+            result.a = outAlpha;
+            result.r = (source.r * source.a +
+                        destination.r * destination.a * (1f - source.a)) / outAlpha;
+            result.g = (source.g * source.a +
+                        destination.g * destination.a * (1f - source.a)) / outAlpha;
+            result.b = (source.b * source.a +
+                        destination.b * destination.a * (1f - source.a)) / outAlpha;
+            return result;
+        }
     }
 }

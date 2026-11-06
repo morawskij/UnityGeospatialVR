@@ -7,7 +7,7 @@ using UnityEngine.Networking;
 
 namespace ProceduralMeshes {
 
-	public sealed class ExternalElevationLoader : MonoBehaviour {
+	public sealed class ExternalElevationLoader {
 
 		int SampleCount = (int)Math.Pow(2,16);
 		public NativeArray<float> LoadTile (
@@ -16,11 +16,12 @@ namespace ProceduralMeshes {
 			string relativePath = Path.Combine(
 				"Projects", projectName, level.ToString(), $"{x}_{z}.bytes"
 			).Replace('\\', '/');
-			string path = Path.Combine(Application.streamingAssetsPath, relativePath);
 			byte[] bytes = null;
 			bool hasValidTile = true;
+			float minimumH = 1000f;
+			float maximumH = -5000f;
 			try {
-				bytes = File.ReadAllBytes(path);
+				bytes = File.ReadAllBytes(relativePath);
 			}
 			catch (Exception) {
 				hasValidTile = false;
@@ -35,7 +36,10 @@ namespace ProceduralMeshes {
 				samples[i] = hasValidTile
 					? BitConverter.ToSingle(bytes, i * sizeof(float))
 					: midH;
+				if (samples[i] < minimumH) minimumH = samples[i];
+				if (samples[i] > maximumH) maximumH = samples[i];
 			}
+			Debug.Log($"Tile {level}/{x}/{z} loaded. minH: {minimumH}, maxH: {maximumH}");
 
 			return samples;
 		}

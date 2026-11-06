@@ -7,7 +7,7 @@ namespace ProceduralMeshes {
 
 	[BurstCompile(FloatPrecision.Standard, FloatMode.Fast, CompileSynchronously = true)]
 	public struct MeshJobTiled<G, S> : IJobFor
-		where G : struct, ITiledMeshGenerator
+		where G : struct, IMeshGeneratorTiled
 		where S : struct, IMeshStreams {
 
     		G generator;
@@ -19,8 +19,6 @@ namespace ProceduralMeshes {
                 Mesh mesh, Mesh.MeshData meshData, NativeArray<float> elevationArray, int level, int tileX, int tileZ, float midH, float hRange, float zScaleFactor, float VerticalScaleFactor, JobHandle dependency
                 ) {
                 var job = new MeshJobTiled<G, S>();
-				job.generator.ResolutionX = 256;
-				job.generator.ResolutionZ = 256;
         		job.generator.level = level;
         		job.generator.tileX = tileX;
         		job.generator.tileZ = tileZ;
@@ -30,9 +28,9 @@ namespace ProceduralMeshes {
 				job.generator.VerticalScaleFactor = VerticalScaleFactor;
 				job.generator.elevationArray = elevationArray;
                 job.streams.Setup(
-                    meshData, mesh.bounds = job.generator.Bounds, job.generator.VertexCount, job.generator.IndexCount
+                    meshData, mesh.bounds = job.generator.Bounds, 65536, 390150
                 );
-                return job.ScheduleParallel(job.generator.JobLength, 1, dependency);
+                return job.ScheduleParallel(256, 1, dependency);
 
                 }
 

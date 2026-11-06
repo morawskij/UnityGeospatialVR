@@ -49,6 +49,7 @@ namespace ProceduralMeshes {
 		Vector3 cameraPosition;
 		Quaternion cameraRotation;
 		TileFamily tileFamily;
+		List<GameObject> tileObjects = new List<GameObject>();
 
 		void Awake () {
 			elevationInfo = new ElevationMetadata();
@@ -64,7 +65,11 @@ namespace ProceduralMeshes {
 
 		void OnValidate () {
 			if (!hasValidatedVE || VE != validatedVE) {
-				transform.localScale = new Vector3(1f, VE, 1f);
+				for (int i = 0; i < tileObjects.Count; i++) {
+					if (tileObjects[i] != null) {
+						tileObjects[i].transform.localScale = new Vector3(1f, VE, 1f);
+					}
+				}
 				validatedVE = VE;
 				if (!hasValidatedVE) {
 					regenerationRequested = true;
@@ -77,10 +82,60 @@ namespace ProceduralMeshes {
 		}
 
 		void Update () {
+
+			if (!regenerationRequested || generationInProgress) {
+				if (mainCamera.transform.position != cameraPosition)
+				{
+					cameraPosition = mainCamera.transform.position;
+					regenerationRequested = true;
+				}
+				else if (mainCamera.transform.rotation != cameraRotation)
+				{
+					cameraRotation = mainCamera.transform.rotation;
+					regenerationRequested = true;
+				}
+				return;
+			}
+
+			regenerationRequested = false;
+			LoadProjectMetadata();
+
+			generationInProgress = true;
+			StartCoroutine(GenerateMeshWhenTilesAreLoaded());
+		}
+
+		IEnumerator GenerateMeshWhenTilesAreLoaded () {
 			//meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel, textureOrder, -midH, roughTopography);
 			//meshTilingScheme.DetermineTileRanges(0.3f);
-			tileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor);
+			tileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures,textureOrder, textureOpacities);
 			tileFamily.GenerateTileMeshes();
+			CreateTileObjects();
+			yield break;
+		}
+
+		void CreateTileObjects () {
+			Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
+			for (int i = 0; i < tileObjects.Count; i++) {
+				if (tileObjects[i] != null) {
+					Destroy(tileObjects[i]);
+				}
+			}
+			tileObjects.Clear();
+
+			for (int i = 0; i < tileFamily.TileMeshes.Count; i++) {
+				GameObject tileObject = new GameObject(tileFamily.TileMeshes[i].name);
+				tileObjects.Add(tileObject);
+				tileObject.transform.SetParent(transform, false);
+				tileObject.AddComponent<MeshFilter>().sharedMesh = tileFamily.TileMeshes[i];
+				MeshRenderer tileRenderer = tileObject.AddComponent<MeshRenderer>();
+				//tileObject.MeshFilter.RecalculateNormals();
+				if (sourceMaterial != null) {
+					Material tileMaterial = new Material(sourceMaterial);
+					tileMaterial.mainTexture = tileFamily.TileTextures[i];
+					tileRenderer.sharedMaterial = tileMaterial;
+				}
+			}
+			generationInProgress = false;
 		}
 
 		void LoadProjectMetadata () {

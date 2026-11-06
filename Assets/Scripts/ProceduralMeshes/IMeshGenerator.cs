@@ -21,13 +21,4 @@ namespace ProceduralMeshes {
 
 		void Execute<S> (int i, S streams) where S : struct, IMeshStreams;
 	}
-
-	public interface ITiledMeshGenerator : IMeshGenerator {
-
-		int level { get; set; }
-		int tileX { get; set; }
-		int tileZ { get; set; }
-		float zScaleFactor { get; set; }
-		float VerticalScaleFactor { get; set; }
-	}
 }
