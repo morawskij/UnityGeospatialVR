@@ -16,10 +16,11 @@ namespace ProceduralMeshes {
 		    public void Execute (int i) => generator.Execute(i, streams);
 
             public static JobHandle ScheduleParallel (
-                Mesh mesh, Mesh.MeshData meshData, NativeArray<float> elevationArray, int level, int tileX, int tileZ, float midH, float hRange, float zScaleFactor, float VerticalScaleFactor, JobHandle dependency
+                Mesh mesh, Mesh.MeshData meshData, NativeArray<float> elevationArray, int level, int levelExcess, int tileX, int tileZ, float midH, float hRange, float zScaleFactor, float VerticalScaleFactor, JobHandle dependency
                 ) {
                 var job = new MeshJobTiled<G, S>();
         		job.generator.level = level;
+				job.generator.levelExcess = levelExcess;
         		job.generator.tileX = tileX;
         		job.generator.tileZ = tileZ;
 				job.generator.midH =midH;

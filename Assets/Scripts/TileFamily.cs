@@ -13,6 +13,7 @@ namespace ProceduralMeshes {
     {
         int deepestLevel;
 		int numberOfLevels;
+        int pyramidLevels;
         List<int4> tileRanges;
         List<Mesh> tileMeshes;
         List<Texture2D> tileTextures;
@@ -25,7 +26,7 @@ namespace ProceduralMeshes {
 		float hRange;
 		float zScaleFactor;
         float verticalScaleFactor;
-        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities)
+        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels)
         {
             this.deepestLevel = deepestLevel;
             this.numberOfLevels = numberOfLevels;
@@ -41,6 +42,7 @@ namespace ProceduralMeshes {
             this.numberOfTextures = numberOfTextures;
             this.textureOrder = textureOrder;
             this.textureOpacities = textureOpacities;
+            this.pyramidLevels = pyramidLevels;
         }
 
         public void GenerateTileMeshes()
@@ -66,11 +68,22 @@ namespace ProceduralMeshes {
                             {
                                 continue;
                             }
-
-                            NativeArray<float> elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH);
+                            int levelExcess = 0;
+                            NativeArray<float> elevation = default;
+                            if (demLevel >= pyramidLevels)
+                            {
+                                levelExcess = demLevel-pyramidLevels+1;
+                                int referencePower = (int)Math.Pow(2,levelExcess);
+                                elevation = elevationLoader.LoadTile(projectName, pyramidLevels-1, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
+                            }
+                            else
+                            {
+                                elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH);
+                            }
                             work.Add(new TileWork
                             {
                                 level = demLevel,
+                                levelExcess = levelExcess,
                                 x = x,
                                 z = z,
                                 elevation = elevation
@@ -118,7 +131,7 @@ namespace ProceduralMeshes {
                     combinedHandle = JobHandle.CombineDependencies(
                         combinedHandle,
                         MeshJobTiled<TerrainTile, SingleStream>.ScheduleParallel(
-                            meshes[i], meshDataArray[i], tile.elevation, tile.level, tile.x, tile.z,
+                            meshes[i], meshDataArray[i], tile.elevation, tile.level, tile.levelExcess, tile.x, tile.z,
                             midH, hRange, zScaleFactor, verticalScaleFactor,
                             default
                         )
@@ -205,6 +218,7 @@ namespace ProceduralMeshes {
         struct TileWork
         {
             public int level;
+            public int levelExcess;
             public int x;
             public int z;
             public NativeArray<float> elevation;
