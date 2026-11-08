@@ -25,8 +25,8 @@ namespace ProceduralMeshes {
 		float baseX => tileX / Mathf.Pow(2f, level);
 		float baseZ => tileZ * zScaleFactor / Mathf.Pow(2f, level);
 		public void Execute<S> (int z, S streams) where S : struct, IMeshStreams {
-			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z==128)*(257-128*holes[0]*holes[2]-128*holes[1]*holes[3]);
-			int ti = (int)Math.Min(z-1,127)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-128,0)*(512-256*(holes[2]+holes[3]))-256*(holes[0]+holes[1]);
+			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z>128)*(257-128*(holes[0]*holes[2]+holes[1]*holes[3]));
+			int ti = (int)Math.Min(z-1,128)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-129,0)*(512-256*(holes[2]+holes[3]))-256*(holes[0]+holes[1]);
 			//int ti = 512*(z-1);
 			float baseTexX = 0f;
 			float baseTexZ = z * dT;
@@ -39,6 +39,10 @@ namespace ProceduralMeshes {
 			{
 				x_start = 128*(int)holes[0]*holes[2];
 				x_end = 257-128*(int)holes[1]*holes[3];
+			}
+			if (z>=128 && z<130 && level==1)
+			{
+				Debug.Log(int3(vi-32896,x_start,x_end));
 			}
 			for (int x = x_start; x < x_end; x++, vi++, ti += 2, baseTexX += dT) {
 				var vertex = new Vertex();

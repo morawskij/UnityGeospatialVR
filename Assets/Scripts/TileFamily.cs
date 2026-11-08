@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -52,7 +54,7 @@ namespace ProceduralMeshes {
             }
 
             var work = new List<TileWork>();
-			int4 innerRange = InitialInnerRange();
+			int4 innerRange = default;
             try
             {
                 for (int level = 0; level < numberOfLevels; level++)
@@ -63,14 +65,16 @@ namespace ProceduralMeshes {
                     {
                         for (int z = range.y; z < range.w; z++)
                         {
-                            if (IsInside(2*x, 2*z, innerRange))
-                            {
-                                continue;
+                            if (level > 0){
+                                if (IsInside(2*x, 2*z, innerRange))
+                                {
+                                    continue;
+                                }   
                             }
                             int RightHole = GetFromBool(2*x+1 == innerRange.x);
                             int TopHole = GetFromBool(2*z+1 == innerRange.y);
-                            int LeftHole = GetFromBool(2*x-1 == innerRange.z);
-                            int BottomHole = GetFromBool(2*z-1 == innerRange.w);
+                            int LeftHole = GetFromBool(2*x+1 == innerRange.z);
+                            int BottomHole = GetFromBool(2*z+1 == innerRange.w);
                             int4 holes = new int4(LeftHole*BottomHole,RightHole*BottomHole,LeftHole*TopHole,RightHole*TopHole);
                             int levelExcess = 0;
                             NativeArray<float> elevation = default;
@@ -145,6 +149,7 @@ namespace ProceduralMeshes {
                 }
 
                 combinedHandle.Complete();
+                LogLevelOneMeshData(work, meshDataArray);
                 Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, meshes);
                 meshDataApplied = true;
                 tileMeshes.AddRange(meshes);
@@ -178,8 +183,67 @@ namespace ProceduralMeshes {
             }
         }
 
+        void LogLevelOneMeshData (List<TileWork> work, Mesh.MeshDataArray meshDataArray) {
+            for (int meshIndex = 0; meshIndex < work.Count; meshIndex++) {
+                TileWork tile = work[meshIndex];
+                if (tile.level != 1) {
+                    continue;
+                }
+
+                Mesh.MeshData meshData = meshDataArray[meshIndex];
+                NativeArray<DebugVertex> vertices = meshData.GetVertexData<DebugVertex>();
+                NativeArray<int> indices = meshData.GetIndexData<int>();
+
+                for (int index = 0; index<indices.Length; index += 3) {
+                    int a = indices[index];
+                    int b = indices[index + 1];
+                    int c = indices[index + 2];
+                    float maximumWidth = Mathf.Max(
+                        Mathf.Abs(vertices[a].position.x - vertices[b].position.x),
+                        Mathf.Abs(vertices[b].position.x - vertices[c].position.x),
+                        Mathf.Abs(vertices[c].position.x - vertices[a].position.x)
+                    );
+                    float maximumHeight = Mathf.Max(
+                        Mathf.Abs(vertices[a].position.z - vertices[b].position.z),
+                        Mathf.Abs(vertices[b].position.z - vertices[c].position.z),
+                        Mathf.Abs(vertices[c].position.z - vertices[a].position.z)
+                    ); 
+                    if(maximumWidth>0.05 || maximumHeight>0.05) {
+                        Debug.Log("Let's have a look at the triangle at triangle index " + index + " with vertex indices: " + a + ", " + b + ", " + c);
+                        Debug.Log(vertices[a].position);
+                        Debug.Log(vertices[b].position);
+                        Debug.Log(vertices[c].position);
+                    }
+            }
+        }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct DebugVertex {
+            public float3 position;
+            public float3 normal;
+            public float4 tangent;
+            public float2 texCoord0;
+        }
+
         public IReadOnlyList<Mesh> TileMeshes => tileMeshes;
         public IReadOnlyList<Texture2D> TileTextures => tileTextures;
+
+        public void ReleaseGeneratedAssets () {
+            foreach (Mesh mesh in tileMeshes) {
+                if (mesh != null) {
+                    UnityEngine.Object.Destroy(mesh);
+                }
+            }
+            tileMeshes.Clear();
+
+            foreach (Texture2D texture in tileTextures) {
+                if (texture != null) {
+                    UnityEngine.Object.Destroy(texture);
+                }
+            }
+            tileTextures.Clear();
+        }
 
         Texture2D LoadTileTexture(TileWork tile)
         {
@@ -231,14 +295,9 @@ namespace ProceduralMeshes {
             public NativeArray<float> elevation;
         }
 
-		int4 InitialInnerRange () => new int4(
-			tileRanges[0].z, tileRanges[0].w,
-			tileRanges[0].z, tileRanges[0].w
-		);
-
 		static bool IsInside (int tileX, int tileZ, int4 innerRange) =>
-            tileX >= innerRange.x && tileX < innerRange.z &&
-            tileZ >= innerRange.y && tileZ < innerRange.w;
+            tileX >= innerRange.x && tileX+1 < innerRange.z &&
+            tileZ >= innerRange.y && tileZ+1 < innerRange.w;
 
         private static Color Over(Color source, Color destination)
         {

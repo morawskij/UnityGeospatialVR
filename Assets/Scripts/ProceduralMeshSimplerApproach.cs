@@ -50,10 +50,11 @@ namespace ProceduralMeshes {
 		TileFamily tileFamily;
 		List<GameObject> tileObjects = new List<GameObject>();
 
-		int generateRarely = 50;
-		int generateCounter = 50;
+		public int generateRarely = 1000;
+		int generateCounter = default;
 
 		void Awake () {
+			generateCounter = generateRarely;
 			elevationInfo = new ElevationMetadata();
 			texturesInfo = new AllTexturesMetadata();
 			cameraPosition = mainCamera.transform.position;
@@ -110,8 +111,10 @@ namespace ProceduralMeshes {
 			//meshTilingScheme.DetermineTileRanges(0.3f);
 			if (generateCounter >= generateRarely)
 			{
-				tileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures,textureOrder, textureOpacities, pyramidLevels);
-				tileFamily.GenerateTileMeshes();
+				var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures,textureOrder, textureOpacities, pyramidLevels);
+				nextTileFamily.GenerateTileMeshes();
+				ReleaseCurrentTileAssets();
+				tileFamily = nextTileFamily;
 				CreateTileObjects();		
 				generateCounter = 0;		
 			}
@@ -125,13 +128,6 @@ namespace ProceduralMeshes {
 
 		void CreateTileObjects () {
 			Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
-			for (int i = 0; i < tileObjects.Count; i++) {
-				if (tileObjects[i] != null) {
-					Destroy(tileObjects[i]);
-				}
-			}
-			tileObjects.Clear();
-
 			for (int i = 0; i < tileFamily.TileMeshes.Count; i++) {
 				GameObject tileObject = new GameObject(tileFamily.TileMeshes[i].name);
 				tileObjects.Add(tileObject);
@@ -146,6 +142,33 @@ namespace ProceduralMeshes {
 				}
 			}
 			generationInProgress = false;
+		}
+
+		void ReleaseCurrentTileAssets () {
+			foreach (GameObject tileObject in tileObjects) {
+				if (tileObject == null) {
+					continue;
+				}
+
+				MeshRenderer tileRenderer = tileObject.GetComponent<MeshRenderer>();
+				if (tileRenderer != null && tileRenderer.sharedMaterial != null) {
+					Destroy(tileRenderer.sharedMaterial);
+				}
+				Destroy(tileObject);
+			}
+			tileObjects.Clear();
+
+			if (tileFamily != null) {
+				tileFamily.ReleaseGeneratedAssets();
+				tileFamily = null;
+			}
+		}
+
+		void OnDestroy () {
+			ReleaseCurrentTileAssets();
+			if (roughTopography.IsCreated) {
+				roughTopography.Dispose();
+			}
 		}
 
 		void LoadProjectMetadata () {
