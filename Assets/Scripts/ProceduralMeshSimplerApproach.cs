@@ -6,11 +6,10 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using ProceduralMeshes.Streams;
 
 namespace ProceduralMeshes {
 
-	[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(StreamingAssetsElevationLoader))]
+	[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 	public sealed class ProceduralMeshSimplerApproach : MonoBehaviour {
 
 		public Camera mainCamera;

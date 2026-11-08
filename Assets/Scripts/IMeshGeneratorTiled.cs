@@ -14,6 +14,7 @@ namespace ProceduralMeshes {
 		public float hRange { get; set; }
 		public float zScaleFactor { get; set; }
 		public float VerticalScaleFactor {get; set;}
+		public int4 holes {get; set;}
 		public NativeArray<float> elevationArray { get; set; }
 		void Execute<S> (int i, S streams) where S : struct, IMeshStreams;
 	}

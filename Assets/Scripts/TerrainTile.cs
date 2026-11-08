@@ -2,7 +2,6 @@ using Unity.Mathematics;
 using UnityEngine;
 using Unity.Collections;
 using System;
-
 using static Unity.Mathematics.math;
 
 namespace ProceduralMeshes {
@@ -17,6 +16,7 @@ namespace ProceduralMeshes {
 		public float hRange { get; set; }
 		public float zScaleFactor { get; set; }
 		public float VerticalScaleFactor {get; set;}
+		public int4 holes {get; set;}
 		[field: ReadOnly]
 		public NativeArray<float> elevationArray { get; set; }
 		public float dT => 1f / 255f;
@@ -25,17 +25,22 @@ namespace ProceduralMeshes {
 		float baseX => tileX / Mathf.Pow(2f, level);
 		float baseZ => tileZ * zScaleFactor / Mathf.Pow(2f, level);
 		public void Execute<S> (int z, S streams) where S : struct, IMeshStreams {
-			int vi = 257 * z, ti = 512 * (z-1);
+			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z==128)*(257-128*holes[0]*holes[2]-128*holes[1]*holes[3]);
+			int ti = (int)Math.Min(z-1,127)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-128,0)*(512-256*(holes[2]+holes[3]))-256*(holes[0]+holes[1]);
+			//int ti = 512*(z-1);
 			float baseTexX = 0f;
 			float baseTexZ = z * dT;
 			int referencePower = (int)Math.Pow(2,levelExcess);
 			int x0 = tileX % referencePower*(int)Math.Pow(2,8-levelExcess);
 			int z0 = tileZ % referencePower*(int)Math.Pow(2,8-levelExcess);
-			if (z==255)
+			int x_start = 128*(int)holes[2*GetFromBool(z>128)];
+			int x_end = 257-128*(int)holes[2*GetFromBool(z>128)+1]-(int)holes[2*GetFromBool(z>128)]*(int)holes[2*GetFromBool(z>128)+1];
+			if (z==128)
 			{
-				Debug.Log(new int4(tileX,tileZ,x0,z0));
+				x_start = 128*(int)holes[0]*holes[2];
+				x_end = 257-128*(int)holes[1]*holes[3];
 			}
-			for (int x = 0; x < 257; x++, vi++, ti += 2, baseTexX += dT) {
+			for (int x = x_start; x < x_end; x++, vi++, ti += 2, baseTexX += dT) {
 				var vertex = new Vertex();
 				vertex.position.x = baseX + x * scaleFactor;
 				vertex.position.z = baseZ + z * scaleFactorZ;
@@ -57,12 +62,14 @@ namespace ProceduralMeshes {
 				vertex.texCoord0 = float2(baseTexX,baseTexZ);
 				vertex.tangent.xw = float2(1f, -1f);
 				streams.SetVertex(vi, vertex);
-				if (x>0 && z>0) {
-					int cellStart = vi - 258;
-					streams.SetTriangle(ti - 2, cellStart + int3(0, 257, 1));
-					streams.SetTriangle(ti - 1, cellStart + int3(1, 257, 258));
+				if (x>x_start && z>128*(int)holes[2*(int)((float)GetFromBool(x>128)*0.5f)]) {
+					int row_shifter = 257-128*((int)holes[2*(int)GetFromBool(z>128)+(int)GetFromBool(x>128)]+(int)holes[2*(int)GetFromBool(z>129)+(int)GetFromBool(x<=128)]);
+					int cellStart = vi -row_shifter-1;
+					streams.SetTriangle(ti - 2, cellStart + int3(0, row_shifter, 1));
+					streams.SetTriangle(ti - 1, cellStart + int3(1, row_shifter, row_shifter+1));
 				}
 			}
+			int GetFromBool(bool b) => b ? 1 : 0;
 
 		}
 		public Bounds Bounds => new Bounds(

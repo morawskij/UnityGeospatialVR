@@ -366,7 +366,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 882327c3c51f18d10adbad70eed49fd0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimpleMovement
-  moveSensibility: 0.01
+  moveSensibility: 0.005
   rotationSensibility: 0.1
   moveAction:
     m_Name: Move
@@ -510,7 +510,6 @@ GameObject:
   - component: {fileID: 980812888}
   - component: {fileID: 980812887}
   - component: {fileID: 980812886}
-  - component: {fileID: 980812885}
   - component: {fileID: 980812889}
   m_Layer: 0
   m_Name: Terrain
@@ -519,18 +518,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &980812885
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 980812883}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eee237ef4079512b0a387e1b949f3b56, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshes.StreamingAssetsElevationLoader
 --- !u!23 &980812886
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -616,13 +603,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshes.ProceduralMeshSimplerApproach
   mainCamera: {fileID: 347789240}
-  deepestLevel: 8
-  numberOfLevels: 1
+  deepestLevel: 2
+  numberOfLevels: 2
   tileRanges:
-  - x: 57
-    y: 79
-    z: 63
-    w: 85
+  - x: 1
+    y: 1
+    z: 2
+    w: 2
+  - x: 0
+    y: 0
+    z: 1
+    w: 1
   projectName: PeaceVallis
   VE: 1
   textureOrder: 03000000000000000200000001000000

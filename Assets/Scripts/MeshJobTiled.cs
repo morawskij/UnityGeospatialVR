@@ -2,6 +2,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
+using Unity.Mathematics;
 
 namespace ProceduralMeshes {
 
@@ -16,7 +17,7 @@ namespace ProceduralMeshes {
 		    public void Execute (int i) => generator.Execute(i, streams);
 
             public static JobHandle ScheduleParallel (
-                Mesh mesh, Mesh.MeshData meshData, NativeArray<float> elevationArray, int level, int levelExcess, int tileX, int tileZ, float midH, float hRange, float zScaleFactor, float VerticalScaleFactor, JobHandle dependency
+                Mesh mesh, Mesh.MeshData meshData, NativeArray<float> elevationArray, int level, int levelExcess, int tileX, int tileZ, float midH, float hRange, float zScaleFactor, float VerticalScaleFactor, int4 holes, JobHandle dependency
                 ) {
                 var job = new MeshJobTiled<G, S>();
         		job.generator.level = level;
@@ -28,8 +29,9 @@ namespace ProceduralMeshes {
 				job.generator.zScaleFactor = zScaleFactor;
 				job.generator.VerticalScaleFactor = VerticalScaleFactor;
 				job.generator.elevationArray = elevationArray;
+				job.generator.holes = holes;
                 job.streams.Setup(
-                    meshData, mesh.bounds = job.generator.Bounds, 66049, 393216
+                    meshData, mesh.bounds = job.generator.Bounds, 66049-16384*(holes[0]+holes[1]+holes[2]+holes[3])-128*(holes[0]+holes[3])*(holes[1]+holes[2]), 393216-98304*(holes[0]+holes[1]+holes[2]+holes[3])
                 );
                 return job.ScheduleParallel(257, 1, dependency);
 

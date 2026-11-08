@@ -1,12 +1,11 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using ProceduralMeshes;
-using ProceduralMeshes.Streams;
 
 namespace ProceduralMeshes {
     public class TileFamily
@@ -64,10 +63,15 @@ namespace ProceduralMeshes {
                     {
                         for (int z = range.y; z < range.w; z++)
                         {
-                            if (IsInside(x, z, innerRange))
+                            if (IsInside(2*x, 2*z, innerRange))
                             {
                                 continue;
                             }
+                            int RightHole = GetFromBool(2*x+1 == innerRange.x);
+                            int TopHole = GetFromBool(2*z+1 == innerRange.y);
+                            int LeftHole = GetFromBool(2*x-1 == innerRange.z);
+                            int BottomHole = GetFromBool(2*z-1 == innerRange.w);
+                            int4 holes = new int4(LeftHole*BottomHole,RightHole*BottomHole,LeftHole*TopHole,RightHole*TopHole);
                             int levelExcess = 0;
                             NativeArray<float> elevation = default;
                             if (demLevel >= pyramidLevels)
@@ -86,11 +90,12 @@ namespace ProceduralMeshes {
                                 levelExcess = levelExcess,
                                 x = x,
                                 z = z,
+                                holes = holes,
                                 elevation = elevation
                             });
                         }
                     }
-                    innerRange = range / 2;
+                    innerRange = range;
                 }
 
                 if (work.Count == 0)
@@ -112,6 +117,7 @@ namespace ProceduralMeshes {
             }
         }
 
+        int GetFromBool(bool b) => b ? 1 : 0;
         void GenerateMeshes(List<TileWork> work)
         {
             var meshes = new Mesh[work.Count];
@@ -132,7 +138,7 @@ namespace ProceduralMeshes {
                         combinedHandle,
                         MeshJobTiled<TerrainTile, SingleStream>.ScheduleParallel(
                             meshes[i], meshDataArray[i], tile.elevation, tile.level, tile.levelExcess, tile.x, tile.z,
-                            midH, hRange, zScaleFactor, verticalScaleFactor,
+                            midH, hRange, zScaleFactor, verticalScaleFactor, tile.holes,
                             default
                         )
                     );
@@ -221,6 +227,7 @@ namespace ProceduralMeshes {
             public int levelExcess;
             public int x;
             public int z;
+            public int4 holes;
             public NativeArray<float> elevation;
         }
 
@@ -232,6 +239,7 @@ namespace ProceduralMeshes {
 		static bool IsInside (int tileX, int tileZ, int4 innerRange) =>
             tileX >= innerRange.x && tileX < innerRange.z &&
             tileZ >= innerRange.y && tileZ < innerRange.w;
+
         private static Color Over(Color source, Color destination)
         {
             float outAlpha = source.a + destination.a * (1f - source.a);
