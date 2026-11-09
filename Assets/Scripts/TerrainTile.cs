@@ -28,13 +28,11 @@ namespace ProceduralMeshes {
 			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z>128)*(257-128*(holes[0]*holes[2]+holes[1]*holes[3]));
 			int ti = (int)Math.Min(z-1,128)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-129,0)*(512-256*(holes[2]+holes[3]))-256*(holes[0]+holes[1]);
 			//int ti = 512*(z-1);
-			float baseTexX = 0f;
-			float baseTexZ = z * dT;
 			int referencePower = (int)Math.Pow(2,levelExcess);
 			int x0 = tileX % referencePower*(int)Math.Pow(2,8-levelExcess);
 			int z0 = tileZ % referencePower*(int)Math.Pow(2,8-levelExcess);
-			int x_start = 128*(int)holes[2*GetFromBool(z>128)];
-			int x_end = 257-128*(int)holes[2*GetFromBool(z>128)+1]-(int)holes[2*GetFromBool(z>128)]*(int)holes[2*GetFromBool(z>128)+1];
+			int x_start = 128*holes[2*GetFromBool(z>128)];
+			int x_end = 257-128*holes[2*GetFromBool(z>128)+1]-holes[2*GetFromBool(z>128)]*holes[2*GetFromBool(z>128)+1];
 			if (z==128)
 			{
 				x_start = 128*(int)holes[0]*holes[2];
@@ -44,6 +42,8 @@ namespace ProceduralMeshes {
 			{
 				Debug.Log(int3(vi-32896,x_start,x_end));
 			}
+			float baseTexX = (float)x_start*dT;
+			float baseTexZ = z * dT;
 			for (int x = x_start; x < x_end; x++, vi++, ti += 2, baseTexX += dT) {
 				var vertex = new Vertex();
 				vertex.position.x = baseX + x * scaleFactor;
@@ -67,7 +67,11 @@ namespace ProceduralMeshes {
 				vertex.tangent.xw = float2(1f, -1f);
 				streams.SetVertex(vi, vertex);
 				if (x>x_start && z>128*(int)holes[2*(int)((float)GetFromBool(x>128)*0.5f)]) {
-					int row_shifter = 257-128*((int)holes[2*(int)GetFromBool(z>128)+(int)GetFromBool(x>128)]+(int)holes[2*(int)GetFromBool(z>129)+(int)GetFromBool(x<=128)]);
+					int row_shifter = 257-128*(GetFromBool(x>128)*holes[2*GetFromBool(z>128)]+GetFromBool(x<=128)*holes[2*(int)GetFromBool(z>129)+1]+GetFromBool(z==129)*holes[GetFromBool(x<=128)]*holes[2+GetFromBool(x<=128)]);
+					if (z>=127 && z<131 && level==1) // Still wrong formula, getting 257 for 129 when shouldn't
+					{
+						Debug.Log(int2(z,row_shifter));
+					}
 					int cellStart = vi -row_shifter-1;
 					streams.SetTriangle(ti - 2, cellStart + int3(0, row_shifter, 1));
 					streams.SetTriangle(ti - 1, cellStart + int3(1, row_shifter, row_shifter+1));
