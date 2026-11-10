@@ -26,7 +26,7 @@ namespace ProceduralMeshes {
 		float baseZ => tileZ * zScaleFactor / Mathf.Pow(2f, level);
 		public void Execute<S> (int z, S streams) where S : struct, IMeshStreams {
 			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z>128)*(257-128*(holes[0]*holes[2]+holes[1]*holes[3]));
-			int ti = (int)Math.Min(z-1,128)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-129,0)*(512-256*(holes[2]+holes[3]))-256*(holes[0]+holes[1]);
+			int ti = (int)Math.Min(z-1,128)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-129,0)*(512-256*(holes[2]+holes[3]));//-256*(holes[0]+holes[1]);
 			//int ti = 512*(z-1);
 			int referencePower = (int)Math.Pow(2,levelExcess);
 			int x0 = tileX % referencePower*(int)Math.Pow(2,8-levelExcess);
@@ -38,13 +38,13 @@ namespace ProceduralMeshes {
 				x_start = 128*(int)holes[0]*holes[2];
 				x_end = 257-128*(int)holes[1]*holes[3];
 			}
-			if (z>=128 && z<130 && level==1)
+			/*if (z<2 && level==1)
 			{
-				Debug.Log(int3(vi-32896,x_start,x_end));
-			}
+				Debug.Log(int3(vi,x_start,x_end));
+			}*/
 			float baseTexX = (float)x_start*dT;
 			float baseTexZ = z * dT;
-			for (int x = x_start; x < x_end; x++, vi++, ti += 2, baseTexX += dT) {
+			for (int x = x_start; x < x_end; x++, vi++, baseTexX += dT) {
 				var vertex = new Vertex();
 				vertex.position.x = baseX + x * scaleFactor;
 				vertex.position.z = baseZ + z * scaleFactorZ;
@@ -66,13 +66,19 @@ namespace ProceduralMeshes {
 				vertex.texCoord0 = float2(baseTexX,baseTexZ);
 				vertex.tangent.xw = float2(1f, -1f);
 				streams.SetVertex(vi, vertex);
-				if (x>x_start && z>128*(int)holes[2*(int)((float)GetFromBool(x>128)*0.5f)]) {
-					int row_shifter = 257-128*(GetFromBool(x>128)*holes[2*GetFromBool(z>128)]+GetFromBool(x<=128)*holes[2*(int)GetFromBool(z>129)+1]+GetFromBool(z==129)*holes[GetFromBool(x<=128)]*holes[2+GetFromBool(x<=128)]);
-					if (z>=127 && z<131 && level==1) // Still wrong formula, getting 257 for 129 when shouldn't
-					{
-						Debug.Log(int2(z,row_shifter));
-					}
+				/*if (z == 1 && level==1)
+				{
+					Debug.Log(float2((float)GetFromBool(x>128)*0.5f,(float)(2*GetFromBool(x>128))*0.5f));
+					Debug.Log(int3(x,x_start,128*holes[(int)((float)(2*GetFromBool(x>128))*0.5f)]));
+				}*/
+				if (x>x_start && z>128*holes[(int)((float)(2*GetFromBool(x>128))*0.5f)]) {
+					ti+=2;
+					int row_shifter = 257-128*(GetFromBool(x>128)*GetFromBool(z!=128 || holes[0]*holes[2]==1)*holes[2*GetFromBool(z>128)]+GetFromBool(x<=128)*GetFromBool(z!=129 || holes[1]*holes[3]==1)*holes[2*(int)GetFromBool(z>129)+1]+GetFromBool(z==129)*holes[GetFromBool(x<=128)]*holes[2+GetFromBool(x<=128)]);
 					int cellStart = vi -row_shifter-1;
+					/*if (z==128 && level==1) // Still wrong formula, getting 257 for 129 when shouldn't
+					{
+						Debug.Log(int4(z,row_shifter,ti,cellStart));
+					}*/
 					streams.SetTriangle(ti - 2, cellStart + int3(0, row_shifter, 1));
 					streams.SetTriangle(ti - 1, cellStart + int3(1, row_shifter, row_shifter+1));
 				}
