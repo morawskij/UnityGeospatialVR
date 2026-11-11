@@ -71,11 +71,12 @@ namespace ProceduralMeshes {
                                     continue;
                                 }   
                             }
-                            int RightHole = GetFromBool(2*x+1 == innerRange.x);
-                            int TopHole = GetFromBool(2*z+1 == innerRange.y);
-                            int LeftHole = GetFromBool(2*x+1 == innerRange.z);
-                            int BottomHole = GetFromBool(2*z+1 == innerRange.w);
-                            int4 holes = new int4(LeftHole*BottomHole,RightHole*BottomHole,LeftHole*TopHole,RightHole*TopHole);
+                            //int RightHole = GetFromBool(2*x+1 == innerRange.x);
+                            //int TopHole = GetFromBool(2*z+1 == innerRange.y);
+                            //int LeftHole = GetFromBool(2*x+1 == innerRange.z);
+                            //int BottomHole = GetFromBool(2*z+1 == innerRange.w);
+                            //int4 holes = new int4(LeftHole*BottomHole,RightHole*BottomHole,LeftHole*TopHole,RightHole*TopHole);
+                            int4 holes = new int4(GetFromBool(InnerIsInside(2*x, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, innerRange)));
                             int levelExcess = 0;
                             NativeArray<float> elevation = default;
                             if (demLevel >= pyramidLevels)
@@ -298,6 +299,10 @@ namespace ProceduralMeshes {
 		static bool IsInside (int tileX, int tileZ, int4 innerRange) =>
             tileX >= innerRange.x && tileX+1 < innerRange.z &&
             tileZ >= innerRange.y && tileZ+1 < innerRange.w;
+
+		static bool InnerIsInside (int tileX, int tileZ, int4 innerRange) =>
+            tileX >= innerRange.x && tileX < innerRange.z &&
+            tileZ >= innerRange.y && tileZ < innerRange.w;
 
         private static Color Over(Color source, Color destination)
         {

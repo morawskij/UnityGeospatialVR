@@ -25,6 +25,10 @@ namespace ProceduralMeshes {
 		float baseX => tileX / Mathf.Pow(2f, level);
 		float baseZ => tileZ * zScaleFactor / Mathf.Pow(2f, level);
 		public void Execute<S> (int z, S streams) where S : struct, IMeshStreams {
+			if (level == 1)
+			{
+				Debug.Log(holes);
+			}
 			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z>128)*(257-128*(holes[0]*holes[2]+holes[1]*holes[3]));
 			int ti = (int)Math.Min(z-1,128)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-129,0)*(512-256*(holes[2]+holes[3]));//-256*(holes[0]+holes[1]);
 			//int ti = 512*(z-1);

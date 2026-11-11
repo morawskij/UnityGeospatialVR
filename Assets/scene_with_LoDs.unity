@@ -636,9 +636,9 @@ MonoBehaviour:
   deepestLevel: 2
   numberOfLevels: 2
   tileRanges:
-  - x: 0
-    y: 1
-    z: 1
+  - x: 1
+    y: 0
+    z: 2
     w: 2
   - x: 0
     y: 0
