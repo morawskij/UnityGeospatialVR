@@ -634,28 +634,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshes.ProceduralMeshSimplerApproach
   mainCamera: {fileID: 347789240}
   deepestLevel: 5
-  numberOfLevels: 5
+  numberOfLevels: 2
   tileRanges:
-  - x: 5
-    y: 2
-    z: 7
-    w: 3
-  - x: 2
+  - x: 3
     y: 1
-    z: 4
-    w: 2
+    z: 9
+    w: 5
   - x: 1
     y: 0
-    z: 2
-    w: 1
-  - x: 0
-    y: 0
-    z: 1
-    w: 1
-  - x: 0
-    y: 0
-    z: 1
-    w: 1
+    z: 5
+    w: 3
   projectName: PeaceVallis
   VE: 1
   textureOrder: 03000000000000000200000001000000

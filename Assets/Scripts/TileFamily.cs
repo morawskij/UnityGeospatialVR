@@ -48,17 +48,62 @@ namespace ProceduralMeshes {
             this.texturePyramidLevels = texturePyramidLevels;
         }
 
+        List<TileWork> GenerateTileWorkList()
+        {
+            var work = new List<TileWork>();
+			int4 innerRange = default;
+            for (int level = 0; level < numberOfLevels; level++)
+            {
+                int4 range = tileRanges[level];
+                int demLevel = deepestLevel - level;
+                for (int x = range.x; x < range.z; x++)
+                {
+                    for (int z = range.y; z < range.w; z++)
+                    {
+                        if (level > 0){
+                            if (IsInside(2*x, 2*z, innerRange))
+                            {
+                                continue;
+                            }   
+                        }
+                        int4 holes = new int4(GetFromBool(InnerIsInside(2*x, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, innerRange)));
+                        int levelExcess = 0;
+                        NativeArray<float> elevation = default;
+                        if (demLevel >= pyramidLevels)
+                        {
+                            levelExcess = demLevel-pyramidLevels+1;
+                            int referencePower = (int)Math.Pow(2,levelExcess);
+                            elevation = elevationLoader.LoadTile(projectName, pyramidLevels-1, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
+                        }
+                        else
+                        {
+                            elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH);
+                        }
+                        work.Add(new TileWork
+                        {
+                            level = demLevel,
+                            levelExcess = levelExcess,
+                            x = x,
+                            z = z,
+                            holes = holes,
+                            elevation = elevation
+                        });
+                    }
+                }
+                innerRange = range;
+            }
+            return work;
+        }
+
         public void GenerateTileMeshes()
         {
             if (elevationLoader == null)
             {
                 throw new InvalidOperationException("An ExternalElevationLoader is required.");
             }
-
             var work = new List<TileWork>();
-			int4 innerRange = default;
-            try
-            {
+            int4 innerRange = default;
+            try{
                 for (int level = 0; level < numberOfLevels; level++)
                 {
                     int4 range = tileRanges[level];
@@ -73,11 +118,6 @@ namespace ProceduralMeshes {
                                     continue;
                                 }   
                             }
-                            //int RightHole = GetFromBool(2*x+1 == innerRange.x);
-                            //int TopHole = GetFromBool(2*z+1 == innerRange.y);
-                            //int LeftHole = GetFromBool(2*x+1 == innerRange.z);
-                            //int BottomHole = GetFromBool(2*z+1 == innerRange.w);
-                            //int4 holes = new int4(LeftHole*BottomHole,RightHole*BottomHole,LeftHole*TopHole,RightHole*TopHole);
                             int4 holes = new int4(GetFromBool(InnerIsInside(2*x, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, innerRange)));
                             int levelExcess = 0;
                             NativeArray<float> elevation = default;
@@ -104,7 +144,6 @@ namespace ProceduralMeshes {
                     }
                     innerRange = range;
                 }
-
                 if (work.Count == 0)
                 {
                     return;
@@ -121,6 +160,19 @@ namespace ProceduralMeshes {
                         tile.elevation.Dispose();
                     }
                 }
+            }
+        }
+
+        public void updateTextures(List<int> newTextureOrder, List<float> newTextureOpacities)
+        {
+            textureOrder=newTextureOrder;
+            textureOpacities=newTextureOpacities;
+            List<TileWork> work = GenerateTileWorkList();
+            for (int i = 0; i < work.Count; i++)
+            {
+                Debug.Log(i);
+                TileWork tile = work[i];
+                tileTextures[i] = LoadTileTexture(tile);
             }
         }
 
@@ -152,7 +204,6 @@ namespace ProceduralMeshes {
                 }
 
                 combinedHandle.Complete();
-                LogLevelOneMeshData(work, meshDataArray);
                 Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, meshes);
                 meshDataApplied = true;
                 tileMeshes.AddRange(meshes);
@@ -186,49 +237,6 @@ namespace ProceduralMeshes {
             }
         }
 
-        void LogLevelOneMeshData (List<TileWork> work, Mesh.MeshDataArray meshDataArray) {
-            for (int meshIndex = 0; meshIndex < work.Count; meshIndex++) {
-                TileWork tile = work[meshIndex];
-                if (tile.level != 1) {
-                    continue;
-                }
-
-                Mesh.MeshData meshData = meshDataArray[meshIndex];
-                NativeArray<DebugVertex> vertices = meshData.GetVertexData<DebugVertex>();
-                NativeArray<int> indices = meshData.GetIndexData<int>();
-
-                for (int index = 0; index<indices.Length; index += 3) {
-                    int a = indices[index];
-                    int b = indices[index + 1];
-                    int c = indices[index + 2];
-                    float maximumWidth = Mathf.Max(
-                        Mathf.Abs(vertices[a].position.x - vertices[b].position.x),
-                        Mathf.Abs(vertices[b].position.x - vertices[c].position.x),
-                        Mathf.Abs(vertices[c].position.x - vertices[a].position.x)
-                    );
-                    float maximumHeight = Mathf.Max(
-                        Mathf.Abs(vertices[a].position.z - vertices[b].position.z),
-                        Mathf.Abs(vertices[b].position.z - vertices[c].position.z),
-                        Mathf.Abs(vertices[c].position.z - vertices[a].position.z)
-                    ); 
-                    if(maximumWidth>0.05 || maximumHeight>0.05) {
-                        Debug.Log("Let's have a look at the triangle at triangle index " + index + " with vertex indices: " + a + ", " + b + ", " + c);
-                        Debug.Log(vertices[a].position);
-                        Debug.Log(vertices[b].position);
-                        Debug.Log(vertices[c].position);
-                    }
-            }
-        }
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        struct DebugVertex {
-            public float3 position;
-            public float3 normal;
-            public float4 tangent;
-            public float2 texCoord0;
-        }
-
         public IReadOnlyList<Mesh> TileMeshes => tileMeshes;
         public IReadOnlyList<Texture2D> TileTextures => tileTextures;
 
@@ -250,13 +258,18 @@ namespace ProceduralMeshes {
 
         Texture2D LoadTileTexture(TileWork tile)
         {
+            return LoadTileTexture(tile.x,tile.z,tile.level);
+        }
+
+        Texture2D LoadTileTexture(int tileX, int tileZ, int level)
+        {
             var ultimateTexture = new Texture2D(256, 256, TextureFormat.RGBA32, false);
             var pixels = new Color[65536];
             Array.Fill(pixels, Color.clear);
             for (var i=0; i<numberOfTextures; i++)
             {
 
-                int3 textureTileNumbers = LevelExcessTextureInfo(tile.level, texturePyramidLevels[textureOrder[i]]-1, tile.x, tile.z);
+                int3 textureTileNumbers = LevelExcessTextureInfo(level, texturePyramidLevels[textureOrder[i]]-1, tileX, tileZ);
                 string path = Path.Combine(
                     "Projects",
                     projectName,
@@ -268,13 +281,13 @@ namespace ProceduralMeshes {
                 try
                 {
                     ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false);
-                    if (tile.level == textureTileNumbers.z)
+                    if (level == textureTileNumbers.z)
                     {
                         newPixels = texture.GetPixels();                           
                     }
                     else
                     {
-                        int4 coordinateRange = TextureLoaderCoordinateRange(tile.x, tile.z, tile.level-textureTileNumbers.z);
+                        int4 coordinateRange = TextureLoaderCoordinateRange(tileX, tileZ, level-textureTileNumbers.z);
                         for (var j=0; j<256; j++)
                         {
                             for (var k=0; k<256; k++)
@@ -337,7 +350,6 @@ namespace ProceduralMeshes {
         static int2 TileInnerCoordinates(int levelExcess, int tileNumber)
         {
             int referencePower = (int)Math.Pow(2,levelExcess);
-            Debug.Log(new int2(tileNumber,tileNumber - TileNumberConverter(levelExcess, tileNumber)*referencePower));
             int baseCoordinate = (int)((tileNumber - TileNumberConverter(levelExcess, tileNumber)*referencePower)*Math.Pow(2,8-levelExcess));
             return new int2(baseCoordinate,baseCoordinate+(int)Math.Pow(2,8-levelExcess));
         }

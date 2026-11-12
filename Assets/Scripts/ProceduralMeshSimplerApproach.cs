@@ -39,7 +39,10 @@ namespace ProceduralMeshes {
 		bool regenerationRequested;
 		bool generationInProgress;
 		[NonSerialized] float validatedVE;
-		[NonSerialized] bool hasValidatedVE;
+
+		[NonSerialized] List<float> validatedTextureOpacities = new List<float>();
+		[NonSerialized] List<int> validatedTextureOrder = new List<int>();
+		[NonSerialized] bool hasValidatedTextures;
 
         List<int> texturePyramidLevels;
         List<string> textureNames;
@@ -62,24 +65,43 @@ namespace ProceduralMeshes {
 			LoadProjectMetadata();
 			elevationLoader = new ExternalElevationLoader();
 			roughTopography = elevationLoader.LoadTile(projectName,0,0,0,midH);
+			validatedTextureOrder.AddRange(textureOrder);
+			validatedTextureOpacities.AddRange(textureOpacities);
 		}
 
 		void Start () => regenerationRequested = true;
 
 		void OnValidate () {
-			if (!hasValidatedVE || VE != validatedVE) {
+			if (VE != validatedVE) {
 				for (int i = 0; i < tileObjects.Count; i++) {
 					if (tileObjects[i] != null) {
 						tileObjects[i].transform.localScale = new Vector3(1f, VE, 1f);
 					}
 				}
 				validatedVE = VE;
-				if (!hasValidatedVE) {
-					regenerationRequested = true;
-					hasValidatedVE = true;
-				}
 				return;
-			}
+			} 
+			/*if (tileFamily != null)
+			{
+				for (int l=0; l<numberOfTextures; l++)
+				{
+					if (textureOrder[l]!=validatedTextureOrder[l] || textureOpacities[l] != validatedTextureOpacities[l])
+					{
+						for (int m=0; m<numberOfTextures; m++)
+						{
+							validatedTextureOrder[m] = textureOrder[m];
+							validatedTextureOpacities[m] = textureOpacities[m];
+						}
+						for (int i = 0; i < tileObjects.Count; i++) {
+							Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
+							Material tileMaterial = new Material(sourceMaterial);
+							tileMaterial.mainTexture = tileFamily.LoadTileTexture(TileTextures[i]);
+							tileObjects[i].GetComponent<MeshRenderer>().sharedMaterial = tileMaterial;
+							}
+						return;
+					}
+				}	
+			}*/
 			generateCounter=50;
 			regenerationRequested = true;
 		}
@@ -134,11 +156,15 @@ namespace ProceduralMeshes {
 				tileObject.transform.SetParent(transform, false);
 				tileObject.AddComponent<MeshFilter>().sharedMesh = tileFamily.TileMeshes[i];
 				MeshRenderer tileRenderer = tileObject.AddComponent<MeshRenderer>();
-				//tileObject.MeshFilter.RecalculateNormals();
 				if (sourceMaterial != null) {
 					Material tileMaterial = new Material(sourceMaterial);
 					tileMaterial.mainTexture = tileFamily.TileTextures[i];
 					tileRenderer.sharedMaterial = tileMaterial;
+				}
+			}
+			for (int i = 0; i < tileObjects.Count; i++) {
+				if (tileObjects[i] != null) {
+					tileObjects[i].transform.localScale = new Vector3(1f, VE, 1f);
 				}
 			}
 			generationInProgress = false;
