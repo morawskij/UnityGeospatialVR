@@ -633,13 +633,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshes.ProceduralMeshSimplerApproach
   mainCamera: {fileID: 347789240}
-  deepestLevel: 2
-  numberOfLevels: 2
+  deepestLevel: 5
+  numberOfLevels: 5
   tileRanges:
+  - x: 5
+    y: 2
+    z: 7
+    w: 3
+  - x: 2
+    y: 1
+    z: 4
+    w: 2
   - x: 1
     y: 0
     z: 2
-    w: 2
+    w: 1
+  - x: 0
+    y: 0
+    z: 1
+    w: 1
   - x: 0
     y: 0
     z: 1
@@ -648,9 +660,9 @@ MonoBehaviour:
   VE: 1
   textureOrder: 03000000000000000200000001000000
   textureOpacities:
-  - 1
-  - 0.5
-  - 0.7
+  - 0
+  - 0
+  - 0
   - 1
   generateRarely: 50
 --- !u!1660057539 &9223372036854775807

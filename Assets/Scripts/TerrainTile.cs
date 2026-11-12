@@ -25,10 +25,6 @@ namespace ProceduralMeshes {
 		float baseX => tileX / Mathf.Pow(2f, level);
 		float baseZ => tileZ * zScaleFactor / Mathf.Pow(2f, level);
 		public void Execute<S> (int z, S streams) where S : struct, IMeshStreams {
-			if (level == 1)
-			{
-				Debug.Log(holes);
-			}
 			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z>128)*(257-128*(holes[0]*holes[2]+holes[1]*holes[3]));
 			int ti = (int)Math.Min(z-1,128)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-129,0)*(512-256*(holes[2]+holes[3]));//-256*(holes[0]+holes[1]);
 			//int ti = 512*(z-1);
@@ -77,7 +73,7 @@ namespace ProceduralMeshes {
 				}*/
 				if (x>x_start && z>128*holes[(int)((float)(2*GetFromBool(x>128))*0.5f)]) {
 					ti+=2;
-					int row_shifter = 257-128*(GetFromBool(x>128)*GetFromBool(z!=128 || holes[0]*holes[2]==1)*holes[2*GetFromBool(z>128)]+GetFromBool(x<=128)*GetFromBool(z!=129 || holes[1]*holes[3]==1)*holes[2*(int)GetFromBool(z>129)+1]+GetFromBool(z==129)*holes[GetFromBool(x<=128)]*holes[2+GetFromBool(x<=128)]);
+					int row_shifter = 257-128*(GetFromBool(x>128)*GetFromBool(z!=128 || holes[0]*holes[2]==1)*holes[2*GetFromBool(z>128)]+GetFromBool(x<=128)*GetFromBool(z!=129 || holes[1]*holes[3]==1)*holes[2*(int)GetFromBool(z>129)+1]);
 					int cellStart = vi -row_shifter-1;
 					/*if (z==128 && level==1) // Still wrong formula, getting 257 for 129 when shouldn't
 					{

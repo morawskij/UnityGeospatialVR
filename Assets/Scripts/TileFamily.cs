@@ -23,11 +23,12 @@ namespace ProceduralMeshes {
         int numberOfTextures;
 		List<int> textureOrder;
 		List<float> textureOpacities;
+        List<int> texturePyramidLevels;
 		float midH;
 		float hRange;
 		float zScaleFactor;
         float verticalScaleFactor;
-        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels)
+        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels, List<int> texturePyramidLevels)
         {
             this.deepestLevel = deepestLevel;
             this.numberOfLevels = numberOfLevels;
@@ -44,6 +45,7 @@ namespace ProceduralMeshes {
             this.textureOrder = textureOrder;
             this.textureOpacities = textureOpacities;
             this.pyramidLevels = pyramidLevels;
+            this.texturePyramidLevels = texturePyramidLevels;
         }
 
         public void GenerateTileMeshes()
@@ -253,18 +255,36 @@ namespace ProceduralMeshes {
             Array.Fill(pixels, Color.clear);
             for (var i=0; i<numberOfTextures; i++)
             {
+
+                int3 textureTileNumbers = LevelExcessTextureInfo(tile.level, texturePyramidLevels[textureOrder[i]]-1, tile.x, tile.z);
                 string path = Path.Combine(
                     "Projects",
                     projectName,
-                    tile.level.ToString(),
-                    $"{tile.x}_{tile.z}_{textureOrder[i]}.png"
+                    textureTileNumbers.z.ToString(),
+                    $"{textureTileNumbers.x}_{textureTileNumbers.y}_{textureOrder[i]}.png"
                 );
                 var texture = new Texture2D(256, 256, TextureFormat.RGBA32, false);
                 var newPixels = new Color[65536];
                 try
                 {
                     ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false);
-                    newPixels = texture.GetPixels();                 
+                    if (tile.level == textureTileNumbers.z)
+                    {
+                        newPixels = texture.GetPixels();                           
+                    }
+                    else
+                    {
+                        int4 coordinateRange = TextureLoaderCoordinateRange(tile.x, tile.z, tile.level-textureTileNumbers.z);
+                        for (var j=0; j<256; j++)
+                        {
+                            for (var k=0; k<256; k++)
+                            {
+                                int sourceX = (int)(coordinateRange.x + (float)k/(float)256*(coordinateRange.z-coordinateRange.x));
+                                int sourceY = (int)(coordinateRange.y + (float)j/(float)256*(coordinateRange.w-coordinateRange.y));
+                                newPixels[j*256+k] = texture.GetPixel(sourceX, sourceY);
+                            }
+                        }
+                    }              
                 }
                 catch (Exception)
                 {
@@ -303,6 +323,32 @@ namespace ProceduralMeshes {
 		static bool InnerIsInside (int tileX, int tileZ, int4 innerRange) =>
             tileX >= innerRange.x && tileX < innerRange.z &&
             tileZ >= innerRange.y && tileZ < innerRange.w;
+
+        static int3 LevelExcessTextureInfo(int level, int maximumLevel, int tileX, int tileZ)
+        {
+            return new int3(TileNumberConverter(level-maximumLevel, tileX), TileNumberConverter(level-maximumLevel, tileZ),(int)Math.Min(level,maximumLevel));
+        }
+
+        static int TileNumberConverter(int levelExcess, int tileNumber)
+        {
+            return tileNumber / (int)Math.Pow(2, (int)Math.Max(0,levelExcess));
+        }
+
+        static int2 TileInnerCoordinates(int levelExcess, int tileNumber)
+        {
+            int referencePower = (int)Math.Pow(2,levelExcess);
+            Debug.Log(new int2(tileNumber,tileNumber - TileNumberConverter(levelExcess, tileNumber)*referencePower));
+            int baseCoordinate = (int)((tileNumber - TileNumberConverter(levelExcess, tileNumber)*referencePower)*Math.Pow(2,8-levelExcess));
+            return new int2(baseCoordinate,baseCoordinate+(int)Math.Pow(2,8-levelExcess));
+        }
+
+        static int4 TextureLoaderCoordinateRange(int tileX, int tileZ, int levelExcess)
+        {
+            int referencePower = (int)Math.Pow(2,levelExcess);
+            int2 xRange = TileInnerCoordinates(levelExcess, tileX);
+            int2 zRange = TileInnerCoordinates(levelExcess, tileZ);
+            return new int4(xRange.x, zRange.x, xRange.y, zRange.y);
+        }
 
         private static Color Over(Color source, Color destination)
         {

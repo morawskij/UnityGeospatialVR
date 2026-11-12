@@ -111,7 +111,7 @@ namespace ProceduralMeshes {
 			//meshTilingScheme.DetermineTileRanges(0.3f);
 			if (generateCounter >= generateRarely)
 			{
-				var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures,textureOrder, textureOpacities, pyramidLevels);
+				var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
 				nextTileFamily.GenerateTileMeshes();
 				ReleaseCurrentTileAssets();
 				tileFamily = nextTileFamily;
