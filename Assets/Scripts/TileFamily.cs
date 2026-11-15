@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -16,6 +17,9 @@ namespace ProceduralMeshes {
 		int numberOfLevels;
         int pyramidLevels;
         List<int4> tileRanges;
+        int oldDeepestLevel;
+		int oldNumberOfLevels;
+        List<int4> oldTileRanges;
         List<Mesh> tileMeshes;
         List<Texture2D> tileTextures;
         string projectName;
@@ -28,11 +32,14 @@ namespace ProceduralMeshes {
 		float hRange;
 		float zScaleFactor;
         float verticalScaleFactor;
-        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels, List<int> texturePyramidLevels)
+        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, int oldDeepestLevel, int oldNumberOfLevels, List<int4> oldTileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels, List<int> texturePyramidLevels)
         {
             this.deepestLevel = deepestLevel;
             this.numberOfLevels = numberOfLevels;
             this.tileRanges = tileRanges;
+            this.oldDeepestLevel = oldDeepestLevel;
+            this.oldNumberOfLevels = oldNumberOfLevels;
+            this.oldTileRanges = oldTileRanges;
             this.midH = midH;
             this.hRange = hRange;
             this.zScaleFactor = zScaleFactor;
@@ -48,105 +55,96 @@ namespace ProceduralMeshes {
             this.texturePyramidLevels = texturePyramidLevels;
         }
 
-        List<TileWork> GenerateTileWorkList()
+        public void ChangeTextures(List<int> textureOrder, List<float> textureOpacities)
         {
-            var work = new List<TileWork>();
-			int4 innerRange = default;
-            for (int level = 0; level < numberOfLevels; level++)
+            this.textureOrder = textureOrder;
+            this.textureOpacities = textureOpacities;
+        }
+        public void GetUnifiedRanges()
+        {
+            if (oldDeepestLevel > deepestLevel)
             {
-                int4 range = tileRanges[level];
-                int demLevel = deepestLevel - level;
-                for (int x = range.x; x < range.z; x++)
-                {
-                    for (int z = range.y; z < range.w; z++)
-                    {
-                        if (level > 0){
-                            if (IsInside(2*x, 2*z, innerRange))
-                            {
-                                continue;
-                            }   
-                        }
-                        int4 holes = new int4(GetFromBool(InnerIsInside(2*x, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, innerRange)));
-                        int levelExcess = 0;
-                        NativeArray<float> elevation = default;
-                        if (demLevel >= pyramidLevels)
-                        {
-                            levelExcess = demLevel-pyramidLevels+1;
-                            int referencePower = (int)Math.Pow(2,levelExcess);
-                            elevation = elevationLoader.LoadTile(projectName, pyramidLevels-1, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
-                        }
-                        else
-                        {
-                            elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH);
-                        }
-                        work.Add(new TileWork
-                        {
-                            level = demLevel,
-                            levelExcess = levelExcess,
-                            x = x,
-                            z = z,
-                            holes = holes,
-                            elevation = elevation
-                        });
-                    }
-                }
-                innerRange = range;
+                tileRanges.InsertRange(0,Enumerable.Repeat(new int4(0,0,0,0),oldDeepestLevel-deepestLevel));
             }
-            return work;
+            else
+            {
+                oldTileRanges.InsertRange(0,Enumerable.Repeat(new int4(0,0,0,0),deepestLevel-oldDeepestLevel));
+            }
+            if(oldDeepestLevel-oldNumberOfLevels > deepestLevel - numberOfLevels)
+            {
+                oldTileRanges.AddRange(Enumerable.Repeat(new int4(0,0,0,0),oldDeepestLevel-deepestLevel-oldNumberOfLevels+numberOfLevels));
+            }
+            else
+            {
+                tileRanges.AddRange(Enumerable.Repeat(new int4(0,0,0,0),deepestLevel-oldDeepestLevel-numberOfLevels+oldNumberOfLevels));
+            }
         }
 
-        public void GenerateTileMeshes()
+        public List<string> GenerateTileMeshes()
         {
+            GetUnifiedRanges();
+            List<string> toBeRemoved = new List<string>();
             if (elevationLoader == null)
             {
                 throw new InvalidOperationException("An ExternalElevationLoader is required.");
             }
             var work = new List<TileWork>();
             int4 innerRange = default;
+            int4 oldInnerRange = default;
             try{
-                for (int level = 0; level < numberOfLevels; level++)
+                for (int level = 0; level <tileRanges.Count; level++)
                 {
-                    int4 range = tileRanges[level];
-                    int demLevel = deepestLevel - level;
+                    int4 newRange = tileRanges[level];
+                    int4 oldRange = oldTileRanges[level];
+                    int4 range = new int4((int)Math.Min(newRange.x,oldRange.x),(int)Math.Min(newRange.y,oldRange.y),(int)Math.Max(newRange.z,oldRange.z),(int)Math.Max(newRange.w,oldRange.w));
+                    int demLevel = (int)Math.Max(oldDeepestLevel,deepestLevel) - level;
                     for (int x = range.x; x < range.z; x++)
                     {
                         for (int z = range.y; z < range.w; z++)
                         {
-                            if (level > 0){
-                                if (IsInside(2*x, 2*z, innerRange))
+                            bool isNew = BelongsToLevel(x, z, newRange, innerRange);
+                            bool isOld = BelongsToLevel(x, z, oldRange, oldInnerRange);
+                            int4 holesNew = new int4(GetFromBool(InnerIsInside(2*x, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, innerRange)));
+                            int4 holesOld = new int4(GetFromBool(InnerIsInside(2*x, 2*z, oldInnerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, oldInnerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, oldInnerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, oldInnerRange)));
+                            bool holeMismatch = holesNew[0]!=holesOld[0] || holesNew[1]!=holesOld[1] || holesNew[2]!=holesOld[2] || holesNew[3]!=holesOld[3];
+                            if (isOld && (!isNew || holeMismatch))
+                            {
+                                string[] forJoin = {demLevel.ToString(),x.ToString(),z.ToString(),holesOld[0].ToString(),holesOld[1].ToString(),holesOld[2].ToString(),holesOld[3].ToString()};
+                                toBeRemoved.Add(String.Join("/",forJoin));
+                            }
+                            if ((!isOld || holeMismatch) && isNew)
+                            {
+
+                                int levelExcess = 0;
+                                NativeArray<float> elevation = default;
+                                if (demLevel >= pyramidLevels)
                                 {
-                                    continue;
-                                }   
+                                    levelExcess = demLevel-pyramidLevels+1;
+                                    int referencePower = (int)Math.Pow(2,levelExcess);
+                                    elevation = elevationLoader.LoadTile(projectName, pyramidLevels-1, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
+                                }
+                                else
+                                {
+                                    elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH);
+                                }
+                                work.Add(new TileWork
+                                {
+                                    level = demLevel,
+                                    levelExcess = levelExcess,
+                                    x = x,
+                                    z = z,
+                                    holes = holesNew,
+                                    elevation = elevation
+                                });                               
                             }
-                            int4 holes = new int4(GetFromBool(InnerIsInside(2*x, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, innerRange)));
-                            int levelExcess = 0;
-                            NativeArray<float> elevation = default;
-                            if (demLevel >= pyramidLevels)
-                            {
-                                levelExcess = demLevel-pyramidLevels+1;
-                                int referencePower = (int)Math.Pow(2,levelExcess);
-                                elevation = elevationLoader.LoadTile(projectName, pyramidLevels-1, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
-                            }
-                            else
-                            {
-                                elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH);
-                            }
-                            work.Add(new TileWork
-                            {
-                                level = demLevel,
-                                levelExcess = levelExcess,
-                                x = x,
-                                z = z,
-                                holes = holes,
-                                elevation = elevation
-                            });
                         }
                     }
-                    innerRange = range;
+                    innerRange = newRange;
+                    oldInnerRange = oldRange;
                 }
                 if (work.Count == 0)
                 {
-                    return;
+                    return toBeRemoved;
                 }
 
                 GenerateMeshes(work);
@@ -161,19 +159,7 @@ namespace ProceduralMeshes {
                     }
                 }
             }
-        }
-
-        public void updateTextures(List<int> newTextureOrder, List<float> newTextureOpacities)
-        {
-            textureOrder=newTextureOrder;
-            textureOpacities=newTextureOpacities;
-            List<TileWork> work = GenerateTileWorkList();
-            for (int i = 0; i < work.Count; i++)
-            {
-                Debug.Log(i);
-                TileWork tile = work[i];
-                tileTextures[i] = LoadTileTexture(tile);
-            }
+            return toBeRemoved;
         }
 
         int GetFromBool(bool b) => b ? 1 : 0;
@@ -191,7 +177,7 @@ namespace ProceduralMeshes {
                 for (int i = 0; i < work.Count; i++)
                 {
                     TileWork tile = work[i];
-                    meshes[i] = new Mesh { name = $"Terrain Tile {tile.level}/{tile.x}/{tile.z}" };
+                    meshes[i] = new Mesh { name = $"{tile.level}/{tile.x}/{tile.z}/{tile.holes[0]}/{tile.holes[1]}/{tile.holes[2]}/{tile.holes[3]}" };
                     textures[i] = LoadTileTexture(tile);
                     combinedHandle = JobHandle.CombineDependencies(
                         combinedHandle,
@@ -261,7 +247,7 @@ namespace ProceduralMeshes {
             return LoadTileTexture(tile.x,tile.z,tile.level);
         }
 
-        Texture2D LoadTileTexture(int tileX, int tileZ, int level)
+        public Texture2D LoadTileTexture(int tileX, int tileZ, int level)
         {
             var ultimateTexture = new Texture2D(256, 256, TextureFormat.RGBA32, false);
             var pixels = new Color[65536];
@@ -336,6 +322,11 @@ namespace ProceduralMeshes {
 		static bool InnerIsInside (int tileX, int tileZ, int4 innerRange) =>
             tileX >= innerRange.x && tileX < innerRange.z &&
             tileZ >= innerRange.y && tileZ < innerRange.w;
+
+        static bool BelongsToLevel (int x, int z, int4 range, int4 innerRange)
+        {
+            return InnerIsInside(x,z,range) && !IsInside(2*x,2*z,innerRange);
+        }
 
         static int3 LevelExcessTextureInfo(int level, int maximumLevel, int tileX, int tileZ)
         {

@@ -28,6 +28,11 @@ namespace ProceduralMeshes {
 		ElevationMetadata elevationInfo;
 		AllTexturesMetadata texturesInfo;
 		CameraPositionBasedTiling meshTilingScheme;
+
+		int oldDeepestLevel = 0;
+		int oldNumberOfLevels = 1;
+		public List<int4> oldTileRanges = new List<int4>();		
+
 		int DEMwidth;
 		int DEMheight;
 		float verticalScaleFactor;
@@ -51,12 +56,14 @@ namespace ProceduralMeshes {
 		Vector3 cameraPosition;
 		Quaternion cameraRotation;
 		TileFamily tileFamily;
-		List<GameObject> tileObjects = new List<GameObject>();
+		List<string> toBeRemoved = default;
+		Dictionary<TileID,GameObject> tileObjects = new Dictionary<TileID,GameObject>();
 
 		public int generateRarely = 1000;
 		int generateCounter = default;
 
 		void Awake () {
+			oldTileRanges.Add(new int4(0,0,0,0));
 			generateCounter = generateRarely;
 			elevationInfo = new ElevationMetadata();
 			texturesInfo = new AllTexturesMetadata();
@@ -73,15 +80,19 @@ namespace ProceduralMeshes {
 
 		void OnValidate () {
 			if (VE != validatedVE) {
-				for (int i = 0; i < tileObjects.Count; i++) {
+				foreach (TileID key in tileObjects.Keys)
+				{
+					tileObjects[key].transform.localScale = new Vector3(1f, VE, 1f);
+				}
+				/*for (int i = 0; i < tileObjects.Count; i++) {
 					if (tileObjects[i] != null) {
 						tileObjects[i].transform.localScale = new Vector3(1f, VE, 1f);
 					}
-				}
+				}*/
 				validatedVE = VE;
 				return;
 			} 
-			/*if (tileFamily != null)
+			if (tileFamily != null)
 			{
 				for (int l=0; l<numberOfTextures; l++)
 				{
@@ -92,16 +103,19 @@ namespace ProceduralMeshes {
 							validatedTextureOrder[m] = textureOrder[m];
 							validatedTextureOpacities[m] = textureOpacities[m];
 						}
-						for (int i = 0; i < tileObjects.Count; i++) {
+						tileFamily.ChangeTextures(textureOrder,textureOpacities);
+						foreach (TileID key in tileObjects.Keys)
+						{
 							Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
+							MeshRenderer tileRenderer = tileObjects[key].GetComponent<MeshRenderer>();
 							Material tileMaterial = new Material(sourceMaterial);
-							tileMaterial.mainTexture = tileFamily.LoadTileTexture(TileTextures[i]);
-							tileObjects[i].GetComponent<MeshRenderer>().sharedMaterial = tileMaterial;
-							}
+							tileMaterial.mainTexture = tileFamily.LoadTileTexture(key.x, key.z, key.level);
+							tileRenderer.sharedMaterial = tileMaterial;
+						}
 						return;
 					}
 				}	
-			}*/
+			}
 			generateCounter=50;
 			regenerationRequested = true;
 		}
@@ -133,12 +147,15 @@ namespace ProceduralMeshes {
 			//meshTilingScheme.DetermineTileRanges(0.3f);
 			if (generateCounter >= generateRarely)
 			{
-				var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, tileRanges, midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
-				nextTileFamily.GenerateTileMeshes();
+				var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, new List<int4>(tileRanges.GetRange(0,numberOfLevels)), oldDeepestLevel, oldNumberOfLevels, new List<int4>(oldTileRanges.GetRange(0,oldNumberOfLevels)), midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
+				toBeRemoved = nextTileFamily.GenerateTileMeshes();
 				ReleaseCurrentTileAssets();
 				tileFamily = nextTileFamily;
 				CreateTileObjects();		
 				generateCounter = 0;		
+				oldDeepestLevel = deepestLevel;
+				oldNumberOfLevels = numberOfLevels;
+				oldTileRanges = new List<int4>(tileRanges.GetRange(0,numberOfLevels));
 			}
 			else
 			{
@@ -152,7 +169,7 @@ namespace ProceduralMeshes {
 			Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
 			for (int i = 0; i < tileFamily.TileMeshes.Count; i++) {
 				GameObject tileObject = new GameObject(tileFamily.TileMeshes[i].name);
-				tileObjects.Add(tileObject);
+				tileObjects.Add(new TileID(tileFamily.TileMeshes[i].name),tileObject);
 				tileObject.transform.SetParent(transform, false);
 				tileObject.AddComponent<MeshFilter>().sharedMesh = tileFamily.TileMeshes[i];
 				MeshRenderer tileRenderer = tileObject.AddComponent<MeshRenderer>();
@@ -162,32 +179,24 @@ namespace ProceduralMeshes {
 					tileRenderer.sharedMaterial = tileMaterial;
 				}
 			}
-			for (int i = 0; i < tileObjects.Count; i++) {
-				if (tileObjects[i] != null) {
-					tileObjects[i].transform.localScale = new Vector3(1f, VE, 1f);
-				}
+			foreach (TileID key in tileObjects.Keys)
+			{
+				tileObjects[key].transform.localScale = new Vector3(1f, VE, 1f);
 			}
 			generationInProgress = false;
 		}
 
 		void ReleaseCurrentTileAssets () {
-			foreach (GameObject tileObject in tileObjects) {
-				if (tileObject == null) {
-					continue;
-				}
-
-				MeshRenderer tileRenderer = tileObject.GetComponent<MeshRenderer>();
-				if (tileRenderer != null && tileRenderer.sharedMaterial != null) {
-					Destroy(tileRenderer.sharedMaterial);
-				}
-				Destroy(tileObject);
+			foreach (string fakeKey in toBeRemoved) {
+				TileID key = new TileID(fakeKey);
+				RemoveTile(key);
 			}
-			tileObjects.Clear();
+			//tileObjects.Clear();
 
-			if (tileFamily != null) {
-				tileFamily.ReleaseGeneratedAssets();
-				tileFamily = null;
-			}
+			//if (tileFamily != null) {
+			//	tileFamily.ReleaseGeneratedAssets();
+			//	tileFamily = null;
+			//}
 		}
 
 		void OnDestroy () {
@@ -222,6 +231,43 @@ namespace ProceduralMeshes {
             for (int level = 0; level < pyramidLevels; level++) {
                 tileRanges.Add(new int4(0, 0, 0, 0));		
 			}	*/
+		}
+
+		public struct TileID {
+		    public int level;
+			public int x;
+			public int z;
+
+			public int hole0;
+			public int hole1;
+			public int hole2;
+			public int hole3;
+			public TileID(string levelxz)
+			{
+				string[] separateLevelXZ = levelxz.Split("/"); 
+				this.level = int.Parse(separateLevelXZ[0]);
+				this.x = int.Parse(separateLevelXZ[1]);
+				this.z = int.Parse(separateLevelXZ[2]);
+				this.hole0 = int.Parse(separateLevelXZ[3]);
+				this.hole1 = int.Parse(separateLevelXZ[4]);
+				this.hole2 = int.Parse(separateLevelXZ[5]);
+				this.hole3 = int.Parse(separateLevelXZ[6]);
+			}
+		}
+
+		public void RemoveTile(TileID id)
+		{
+			if (tileObjects.TryGetValue(id, out GameObject tile))
+			{
+				tileObjects.Remove(id);
+				MeshRenderer tileRenderer = default;
+				if (tile != null)
+					tileRenderer = tile.GetComponent<MeshRenderer>();
+					if (tileRenderer != null && tileRenderer.sharedMaterial != null) {
+						Destroy(tileRenderer.sharedMaterial);
+					}
+					Destroy(tile);
+			}
 		}
 	}
 }
