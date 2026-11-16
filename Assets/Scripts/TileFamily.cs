@@ -98,46 +98,75 @@ namespace ProceduralMeshes {
                     int4 oldRange = oldTileRanges[level];
                     int4 range = new int4((int)Math.Min(newRange.x,oldRange.x),(int)Math.Min(newRange.y,oldRange.y),(int)Math.Max(newRange.z,oldRange.z),(int)Math.Max(newRange.w,oldRange.w));
                     int demLevel = (int)Math.Max(oldDeepestLevel,deepestLevel) - level;
-                    for (int x = range.x; x < range.z; x++)
+                    int levelExcess = (int)Math.Max(0,demLevel-pyramidLevels+1);
+                    int referencePower = (int)Math.Pow(2,levelExcess);
+                    List<int2> fortheLoop = new List<int2>();
+                    List<int> sharedElevationCounters = new List<int>();
+                    sharedElevationCounters.Add(0);
+                    int sharedElevationIterator = 0;
+                    int x = range.x;
+                    int z = range.y;
+                    int z0 = range.y;
+                    int2 limiters = default;
+                    while (x < range.z)
                     {
-                        for (int z = range.y; z < range.w; z++)
+                        while (z < range.w)
                         {
-                            bool isNew = BelongsToLevel(x, z, newRange, innerRange);
-                            bool isOld = BelongsToLevel(x, z, oldRange, oldInnerRange);
-                            int4 holesNew = new int4(GetFromBool(InnerIsInside(2*x, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, innerRange)));
-                            int4 holesOld = new int4(GetFromBool(InnerIsInside(2*x, 2*z, oldInnerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, oldInnerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, oldInnerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, oldInnerRange)));
-                            bool holeMismatch = holesNew[0]!=holesOld[0] || holesNew[1]!=holesOld[1] || holesNew[2]!=holesOld[2] || holesNew[3]!=holesOld[3];
-                            if (isOld && (!isNew || holeMismatch))
+                            int2 currentCoords = new int2((int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower));
+                            limiters = new int2((int)Math.Min(referencePower*(currentCoords.x+1),range.z),(int)Math.Min(referencePower*(currentCoords.y+1),range.w));
+                            sharedElevationIterator++;
+                            sharedElevationCounters.Add(0);
+                            for (int i=x; i<limiters.x; i++)
                             {
-                                string[] forJoin = {demLevel.ToString(),x.ToString(),z.ToString(),holesOld[0].ToString(),holesOld[1].ToString(),holesOld[2].ToString(),holesOld[3].ToString()};
-                                toBeRemoved.Add(String.Join("/",forJoin));
+                                for (int j=z; j<limiters.y; j++)
+                                {
+                                    fortheLoop.Add(new int2(i,j));
+                                    sharedElevationCounters[sharedElevationIterator]++;
+                                }   
                             }
-                            if ((!isOld || holeMismatch) && isNew)
-                            {
-
-                                int levelExcess = 0;
-                                NativeArray<float> elevation = default;
-                                if (demLevel >= pyramidLevels)
-                                {
-                                    levelExcess = demLevel-pyramidLevels+1;
-                                    int referencePower = (int)Math.Pow(2,levelExcess);
-                                    elevation = elevationLoader.LoadTile(projectName, pyramidLevels-1, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
-                                }
-                                else
-                                {
-                                    elevation = elevationLoader.LoadTile(projectName, demLevel, x, z, midH);
-                                }
-                                work.Add(new TileWork
-                                {
-                                    level = demLevel,
-                                    levelExcess = levelExcess,
-                                    x = x,
-                                    z = z,
-                                    holes = holesNew,
-                                    elevation = elevation
-                                });                               
-                            }
+                            z=limiters.y;
                         }
+                        x=limiters.x;
+                        z=z0;
+                    }
+                    int tileCounterForShared = 0;
+                    sharedElevationIterator = 0;
+                    foreach (int2 tileCoords in fortheLoop){
+                        NativeArray<float> elevation = default;
+                        x = tileCoords.x;
+                        z = tileCoords.y;
+                        bool isNew = BelongsToLevel(x, z, newRange, innerRange);
+                        bool isOld = BelongsToLevel(x, z, oldRange, oldInnerRange);
+                        int4 holesNew = new int4(GetFromBool(InnerIsInside(2*x, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, innerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, innerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, innerRange)));
+                        int4 holesOld = new int4(GetFromBool(InnerIsInside(2*x, 2*z, oldInnerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z, oldInnerRange)), GetFromBool(InnerIsInside(2*x, 2*z+1, oldInnerRange)), GetFromBool(InnerIsInside(2*x+1, 2*z+1, oldInnerRange)));
+                        bool holeMismatch = holesNew[0]!=holesOld[0] || holesNew[1]!=holesOld[1] || holesNew[2]!=holesOld[2] || holesNew[3]!=holesOld[3];
+                        if (isOld && (!isNew || holeMismatch))
+                        {
+                            string[] forJoin = {demLevel.ToString(),x.ToString(),z.ToString(),holesOld[0].ToString(),holesOld[1].ToString(),holesOld[2].ToString(),holesOld[3].ToString()};
+                            toBeRemoved.Add(String.Join("/",forJoin));
+                        }
+                        if ((!isOld || holeMismatch) && isNew)
+                        {
+                            if (tileCounterForShared >= sharedElevationCounters[sharedElevationIterator])
+                            {
+                                elevation = elevationLoader.LoadTile(projectName, pyramidLevels-1, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
+                                while (tileCounterForShared >= sharedElevationCounters[sharedElevationIterator])
+                                {
+                                    tileCounterForShared-=sharedElevationCounters[sharedElevationIterator];
+                                    sharedElevationIterator++;   
+                                }
+                            }
+                            work.Add(new TileWork
+                            {
+                                level = demLevel,
+                                levelExcess = levelExcess,
+                                x = x,
+                                z = z,
+                                holes = holesNew,
+                                elevation = elevation
+                            });                               
+                        }
+                        tileCounterForShared++;
                     }
                     innerRange = newRange;
                     oldInnerRange = oldRange;
