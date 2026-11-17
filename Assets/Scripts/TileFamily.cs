@@ -91,7 +91,7 @@ namespace ProceduralMeshes {
             var work = new List<TileWork>();
             int4 innerRange = default;
             int4 oldInnerRange = default;
-            try{
+            //try{
                 for (int level = 0; level <tileRanges.Count; level++)
                 {
                     int4 newRange = tileRanges[level];
@@ -131,8 +131,8 @@ namespace ProceduralMeshes {
                     }
                     int tileCounterForShared = 0;
                     sharedElevationIterator = 0;
+                    NativeArray<float> elevation = default;
                     foreach (int2 tileCoords in fortheLoop){
-                        NativeArray<float> elevation = default;
                         x = tileCoords.x;
                         z = tileCoords.y;
                         bool isNew = BelongsToLevel(x, z, newRange, innerRange);
@@ -164,7 +164,7 @@ namespace ProceduralMeshes {
                                 z = z,
                                 holes = holesNew,
                                 elevation = elevation
-                            });                               
+                            });                           
                         }
                         tileCounterForShared++;
                     }
@@ -177,7 +177,7 @@ namespace ProceduralMeshes {
                 }
 
                 GenerateMeshes(work);
-            }
+            /*}
             finally
             {
                 foreach (TileWork tile in work)
@@ -187,7 +187,7 @@ namespace ProceduralMeshes {
                         tile.elevation.Dispose();
                     }
                 }
-            }
+            }*/
             return toBeRemoved;
         }
 
