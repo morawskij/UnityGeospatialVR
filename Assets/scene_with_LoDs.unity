@@ -657,7 +657,7 @@ MonoBehaviour:
   - 0
   - 1
   oldTileRanges: []
-  generateRarely: 50
+  generateRarely: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

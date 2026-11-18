@@ -84,11 +84,6 @@ namespace ProceduralMeshes {
 				{
 					tileObjects[key].transform.localScale = new Vector3(1f, VE, 1f);
 				}
-				/*for (int i = 0; i < tileObjects.Count; i++) {
-					if (tileObjects[i] != null) {
-						tileObjects[i].transform.localScale = new Vector3(1f, VE, 1f);
-					}
-				}*/
 				validatedVE = VE;
 				return;
 			} 
@@ -143,8 +138,11 @@ namespace ProceduralMeshes {
 		}
 
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
-			//meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, projectName, texturePyramidLevels, numberOfTextures, maximumDescentLevel, textureOrder, -midH, roughTopography);
-			//meshTilingScheme.DetermineTileRanges(0.3f);
+			meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, maximumDescentLevel, midH, roughTopography);
+			meshTilingScheme.DetermineTileRanges(0.3f);
+			/*numberOfLevels = meshTilingScheme.numberOfLevels;
+			deepestLevel = meshTilingScheme.deepestLevel;
+			tileRanges = new List<int4>(meshTilingScheme.tileRanges.GetRange(0,numberOfLevels));*/
 			if (generateCounter >= generateRarely)
 			{
 				var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, new List<int4>(tileRanges.GetRange(0,numberOfLevels)), oldDeepestLevel, oldNumberOfLevels, new List<int4>(oldTileRanges.GetRange(0,oldNumberOfLevels)), midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
