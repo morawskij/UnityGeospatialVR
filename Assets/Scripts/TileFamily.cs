@@ -148,7 +148,7 @@ namespace ProceduralMeshes {
                     {
                         if (tileCounterForShared >= sharedElevationCounters[sharedElevationIterator])
                         {
-                            elevation = elevationLoader.LoadTile(projectName, pyramidLevels-1, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
+                            elevation = elevationLoader.LoadTile(projectName, demLevel-levelExcess, (int)Math.Floor((float)x/(float)referencePower), (int)Math.Floor((float)z/(float)referencePower), midH);
                             while (tileCounterForShared >= sharedElevationCounters[sharedElevationIterator])
                             {
                                 tileCounterForShared-=sharedElevationCounters[sharedElevationIterator];
