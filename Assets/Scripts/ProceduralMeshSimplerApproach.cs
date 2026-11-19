@@ -19,6 +19,7 @@ namespace ProceduralMeshes {
 
 		public string projectName = "Antarctica";
 		public float VE = 1f;
+		public float margin = 0.5f;
 		
 		public List<int> textureOrder;
 		public List<float> textureOpacities;
@@ -138,11 +139,11 @@ namespace ProceduralMeshes {
 		}
 
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
-			meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, maximumDescentLevel, midH, roughTopography);
-			meshTilingScheme.DetermineTileRanges(0.3f);
-			/*numberOfLevels = meshTilingScheme.numberOfLevels;
+			meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, maximumDescentLevel, midH, roughTopography, verticalScaleFactor*VE);
+			meshTilingScheme.DetermineTileRanges(margin);
+			numberOfLevels = meshTilingScheme.numberOfLevels;
 			deepestLevel = meshTilingScheme.deepestLevel;
-			tileRanges = new List<int4>(meshTilingScheme.tileRanges.GetRange(0,numberOfLevels));*/
+			tileRanges = new List<int4>(meshTilingScheme.tileRanges.GetRange(0,numberOfLevels));
 			if (generateCounter >= generateRarely)
 			{
 				var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, new List<int4>(tileRanges.GetRange(0,numberOfLevels)), oldDeepestLevel, oldNumberOfLevels, new List<int4>(oldTileRanges.GetRange(0,oldNumberOfLevels)), midH, hRange, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
