@@ -12,6 +12,7 @@ namespace ProceduralMeshes {
         public int tileZ { get; set; }
 		public float midH { get; set; }
 		public float hRange { get; set; }
+		public float overallScaleFactor { get; set; }
 		public float zScaleFactor { get; set; }
 		public float VerticalScaleFactor {get; set;}
 		public int4 holes {get; set;}

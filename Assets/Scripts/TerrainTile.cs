@@ -14,16 +14,17 @@ namespace ProceduralMeshes {
         public int tileZ { get; set; }
 		public float midH { get; set; }
 		public float hRange { get; set; }
+		public float overallScaleFactor { get; set; }
 		public float zScaleFactor { get; set; }
 		public float VerticalScaleFactor {get; set;}
 		public int4 holes {get; set;}
 		[field: ReadOnly]
 		public NativeArray<float> elevationArray { get; set; }
 		public float dT => 1f / 255f;
-		float scaleFactor => 1f / Mathf.Pow(2f, level + 8);
+		float scaleFactor => overallScaleFactor / Mathf.Pow(2f, level + 8);
 		float scaleFactorZ => scaleFactor*zScaleFactor;
-		float baseX => tileX / Mathf.Pow(2f, level);
-		float baseZ => tileZ * zScaleFactor / Mathf.Pow(2f, level);
+		float baseX => overallScaleFactor*tileX / Mathf.Pow(2f, level);
+		float baseZ => overallScaleFactor * tileZ * zScaleFactor / Mathf.Pow(2f, level);
 		public void Execute<S> (int z, S streams) where S : struct, IMeshStreams {
 			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z>128)*(257-128*(holes[0]*holes[2]+holes[1]*holes[3]));
 			int ti = (int)Math.Min(z-1,128)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-129,0)*(512-256*(holes[2]+holes[3]));

@@ -13,20 +13,24 @@ namespace ProceduralMeshes {
     {
         public Camera mainCamera;
         public float zScale;
+        public float upperZBound;
         public float midH;
         public float verticalScaleFactor;
+        public float overallScaleFactor;
         int maximumDescentLevel;
 
         int DEMwidth;
         int DEMheight;
         NativeArray<float> roughTopography;
 
-        public CameraPositionBasedTiling(Camera mainCamera, float zScale, int maximumDescentLevel, float midH, NativeArray<float> roughTopography, float verticalScaleFactor) {
+        public CameraPositionBasedTiling(Camera mainCamera, float zScale, int maximumDescentLevel, float midH, NativeArray<float> roughTopography, float overallScaleFactor, float verticalScaleFactor) {
             this.mainCamera = mainCamera;
             this.zScale = zScale;
+            this.upperZBound = zScale*overallScaleFactor;
             this.maximumDescentLevel = maximumDescentLevel;
             this.midH = midH;
             this.roughTopography = roughTopography;
+            this.overallScaleFactor = overallScaleFactor;
             this.verticalScaleFactor = verticalScaleFactor;
             tileRanges = new List<int4>(maximumDescentLevel+1);
             for (int level = 0; level <=maximumDescentLevel; level++) {
@@ -47,7 +51,7 @@ namespace ProceduralMeshes {
 
             float pixelAngleFactor = 2f * Mathf.Tan(0.5f * pixelAngle);
             Vector3 cameraPosition = mainCamera.transform.position;
-            Vector2 referencePoint = new Vector2(Math.Max(0,Math.Min(1,cameraPosition.x)),Math.Max(0,Math.Min(zScale,cameraPosition.z)));
+            Vector2 referencePoint = new Vector2(Math.Max(0,Math.Min(overallScaleFactor,cameraPosition.x)),Math.Max(0,Math.Min(upperZBound,cameraPosition.z)));
             float referenceHeight = GetHeightAt(referencePoint.x,referencePoint.y);
             float cameraHeight = cameraPosition.y-referenceHeight;
             if (cameraHeight <= 0) 
@@ -57,7 +61,7 @@ namespace ProceduralMeshes {
             else
             {
                 float pixelSizeAtCameraHeight = (float)Math.Sqrt(Math.Pow(cameraHeight,2)+Math.Pow(cameraPosition.x-referencePoint.x,2)+Math.Pow(cameraPosition.z-referencePoint.y,2)) * pixelAngleFactor;
-                deepestLevel = (int)Mathf.Min(Mathf.Max(Mathf.Ceil(Mathf.Log(1f/pixelSizeAtCameraHeight,2))-8, 0), maximumDescentLevel - 1);
+                deepestLevel = (int)Mathf.Min(Mathf.Max(Mathf.Ceil(Mathf.Log(overallScaleFactor/pixelSizeAtCameraHeight,2))-8, 0), maximumDescentLevel - 1);
             }
             if (deepestLevel == 0) {
                 numberOfLevels = 1;
@@ -71,12 +75,12 @@ namespace ProceduralMeshes {
                 float2 zRange = new float2(cameraPosition.z,cameraPosition.z);
                 int levelsToIgnore=0;
                 for (int i = 0; i <= deepestLevel; i++) {
-                    float levelTile = Mathf.Pow(2, - deepestLevel + i);
+                    float levelTile = overallScaleFactor*Mathf.Pow(2, - deepestLevel + i);
                     float levelTileZ = levelTile*zScale;
                     float levelPixel = levelTile/256f;
                     float levelRadius = levelPixel/pixelAngleFactor;
-                    xRange = new float2(GetFinalDistance(xRange.x,0,levelRadius,true,false),GetFinalDistance(xRange.y,1,levelRadius,true,true));
-                    zRange = new float2(GetFinalDistance(zRange.x,0,levelRadius,false,false),GetFinalDistance(zRange.y,zScale,levelRadius,false,true));
+                    xRange = new float2(GetFinalDistance(xRange.x,0,levelRadius,true,false),GetFinalDistance(xRange.y,overallScaleFactor,levelRadius,true,true));
+                    zRange = new float2(GetFinalDistance(zRange.x,0,levelRadius,false,false),GetFinalDistance(zRange.y,upperZBound,levelRadius,false,true));
                     int2 xTileRange = new int2((int)(xRange.x / levelTile),(int)Mathf.Ceil(xRange.y / levelTile));
                     int2 zTileRange = new int2((int)(zRange.x / levelTileZ),(int)Mathf.Ceil(zRange.y / levelTileZ));
                     if (xTileRange.x == xTileRange.y)
@@ -134,9 +138,9 @@ namespace ProceduralMeshes {
         public float4 GetScreenBounds(Camera mainCamera)
         {
             float precision = 1f/Screen.height;
-            float minimumX = 1f;
+            float minimumX = overallScaleFactor;
             float maximumX = 0f;
-            float minimumZ = zScale;
+            float minimumZ = upperZBound;
             float maximumZ = 0f;
             Plane plane = new Plane(Vector3.up, -midH*verticalScaleFactor);
             for (int i=0; i<(int)Mathf.Ceil(1/precision); i++)
@@ -159,7 +163,7 @@ namespace ProceduralMeshes {
                     minimumZ = Mathf.Min(minimumZ,intersection.z);
                     maximumZ = Mathf.Max(maximumZ,intersection.z);
                 }
-                if (minimumX<=0f && maximumX >= 1f && minimumZ<=0f && maximumZ >= zScale)
+                if (minimumX<=0f && maximumX >= overallScaleFactor && minimumZ<=0f && maximumZ >= upperZBound)
                 {
                     break;
                 }
@@ -185,12 +189,13 @@ namespace ProceduralMeshes {
                     minimumZ = Mathf.Min(minimumZ,intersection.z);
                     maximumZ = Mathf.Max(maximumZ,intersection.z);
                 }
-                if (minimumX<=0f && maximumX >= 1f && minimumZ<=0f && maximumZ >= zScale)
+                if (minimumX<=0f && maximumX >= overallScaleFactor && minimumZ<=0f && maximumZ >= upperZBound)
                 {
                     break;
                 }
             }
-            return new float4(Mathf.Max(0f,minimumX),Mathf.Max(0f,minimumZ),Mathf.Min(1f,maximumX),Mathf.Min(zScale,maximumZ));
+            return new float4(Mathf.Max(0f,minimumX),Mathf.Max(0f,minimumZ),Mathf.Min(overallScaleFactor,maximumX),Mathf.Min(upperZBound,maximumZ));
+            //return new float4(0f,0f,overallScaleFactor,upperZBound);
         }
 
         public float GetFinalDistance(float boundMin, float boundMax, float levelRadius, bool horizontal, bool increasing)
@@ -198,7 +203,7 @@ namespace ProceduralMeshes {
             Vector3 cameraPosition = mainCamera.transform.position;
             float newPosition = (boundMin+boundMax)/2;
             float referencePosition = cameraPosition.x*GetFromBool(horizontal)+cameraPosition.z*GetFromBool(!horizontal);
-            if (Mathf.Abs(boundMax - boundMin) < 0.0078f)
+            if (Mathf.Abs(boundMax - boundMin) < 0.0078f*overallScaleFactor)
             {
                 return newPosition;
             }
@@ -207,7 +212,7 @@ namespace ProceduralMeshes {
                 float currentPlaneRadius = Mathf.Abs(referencePosition-newPosition);
                 float2 foot = GetFootPosition(currentPlaneRadius,horizontal,increasing);
                 float newPlaneRadius = GetPlaneRadius(levelRadius,cameraPosition.y-GetHeightAt(foot.x,foot.y));
-                if (Mathf.Abs(newPlaneRadius - currentPlaneRadius) < 0.0039f)
+                if (Mathf.Abs(newPlaneRadius - currentPlaneRadius) < 0.0039f*overallScaleFactor)
                 {
                     return newPosition;
                 }
@@ -233,13 +238,13 @@ namespace ProceduralMeshes {
 
         public float GetHeightAt(float x, float z)
         {
-            if (x<0 || x>1 || z<0 || z > zScale)
+            if (x<0 || x>overallScaleFactor || z<0 || z > upperZBound)
             {
                 return 0f;
             }
             else
             {
-                return verticalScaleFactor*(roughTopography[257*(int)(256*z/zScale)+(int)(256*x)]-midH);
+                return verticalScaleFactor*(roughTopography[257*(int)(256*z/upperZBound)+(int)(256*x/overallScaleFactor)]-midH);
             }
         }
 

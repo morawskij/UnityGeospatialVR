@@ -32,7 +32,8 @@ namespace ProceduralMeshes {
 		float hRange;
 		float zScaleFactor;
         float verticalScaleFactor;
-        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, int oldDeepestLevel, int oldNumberOfLevels, List<int4> oldTileRanges, float midH, float hRange, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels, List<int> texturePyramidLevels)
+        float overallScaleFactor;
+        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, int oldDeepestLevel, int oldNumberOfLevels, List<int4> oldTileRanges, float midH, float hRange, float overallScaleFactor, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels, List<int> texturePyramidLevels)
         {
             this.deepestLevel = deepestLevel;
             this.numberOfLevels = numberOfLevels;
@@ -42,6 +43,7 @@ namespace ProceduralMeshes {
             this.oldTileRanges = oldTileRanges;
             this.midH = midH;
             this.hRange = hRange;
+            this.overallScaleFactor = overallScaleFactor;
             this.zScaleFactor = zScaleFactor;
             this.verticalScaleFactor = verticalScaleFactor;
             this.projectName = projectName;
@@ -200,7 +202,7 @@ namespace ProceduralMeshes {
                         combinedHandle,
                         MeshJobTiled<TerrainTile, SingleStream>.ScheduleParallel(
                             meshes[i], meshDataArray[i], tile.elevation, tile.level, tile.levelExcess, tile.x, tile.z,
-                            midH, hRange, zScaleFactor, verticalScaleFactor, tile.holes,
+                            midH, hRange, overallScaleFactor, zScaleFactor, verticalScaleFactor, tile.holes,
                             default
                         )
                     );
