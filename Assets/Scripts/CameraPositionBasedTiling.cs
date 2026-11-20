@@ -48,7 +48,8 @@ namespace ProceduralMeshes {
             float pixelAngleFactor = 2f * Mathf.Tan(0.5f * pixelAngle);
             Vector3 cameraPosition = mainCamera.transform.position;
             Vector2 referencePoint = new Vector2(Math.Max(0,Math.Min(1,cameraPosition.x)),Math.Max(0,Math.Min(zScale,cameraPosition.z)));
-            float cameraHeight = cameraPosition.y-GetHeightAt(referencePoint.x,referencePoint.y);
+            float referenceHeight = GetHeightAt(referencePoint.x,referencePoint.y);
+            float cameraHeight = cameraPosition.y-referenceHeight;
             if (cameraHeight <= 0) 
             {
                 deepestLevel = 0;
@@ -64,25 +65,20 @@ namespace ProceduralMeshes {
             }
             else
             {
-                Vector3 worldBottomLeft = mainCamera.ViewportToWorldPoint(new Vector3(-margin, -margin,cameraHeight));
-                Vector3 worldBottomRight = mainCamera.ViewportToWorldPoint(new Vector3(1+margin, -margin,cameraHeight));
-                Vector3 worldTopLeft = mainCamera.ViewportToWorldPoint(new Vector3(-margin, 1+margin,cameraHeight));
-                Vector3 worldTopRight = mainCamera.ViewportToWorldPoint(new Vector3(1+margin, 1+margin,cameraHeight));
-                float minimumX = Mathf.Min(Mathf.Min(worldBottomLeft.x, worldBottomRight.x), Mathf.Min(worldTopLeft.x, worldTopRight.x));
-                float minimumZ = Mathf.Min(Mathf.Min(worldBottomLeft.z, worldBottomRight.z), Mathf.Min(worldTopLeft.z, worldTopRight.z));
-                float maximumX = Mathf.Max(Mathf.Max(worldBottomLeft.x, worldBottomRight.x), Mathf.Max(worldTopLeft.x, worldTopRight.x));
-                float maximumZ = Mathf.Max(Mathf.Max(worldBottomLeft.z, worldBottomRight.z), Mathf.Max(worldTopLeft.z, worldTopRight.z));
+                float4 screenBounds = GetScreenBounds(mainCamera);
+                Debug.Log(screenBounds);
                 float2 xRange = new float2(cameraPosition.x,cameraPosition.x);
                 float2 zRange = new float2(cameraPosition.z,cameraPosition.z);
-
+                int levelsToIgnore=0;
                 for (int i = 0; i <= deepestLevel; i++) {
                     float levelTile = Mathf.Pow(2, - deepestLevel + i);
+                    float levelTileZ = levelTile*zScale;
                     float levelPixel = levelTile/256f;
                     float levelRadius = levelPixel/pixelAngleFactor;
                     xRange = new float2(GetFinalDistance(xRange.x,0,levelRadius,true,false),GetFinalDistance(xRange.y,1,levelRadius,true,true));
                     zRange = new float2(GetFinalDistance(zRange.x,0,levelRadius,false,false),GetFinalDistance(zRange.y,zScale,levelRadius,false,true));
                     int2 xTileRange = new int2((int)(xRange.x / levelTile),(int)Mathf.Ceil(xRange.y / levelTile));
-                    int2 zTileRange = new int2((int)(zRange.x / levelTile),(int)Mathf.Ceil(zRange.y / levelTile));
+                    int2 zTileRange = new int2((int)(zRange.x / levelTileZ),(int)Mathf.Ceil(zRange.y / levelTileZ));
                     if (xTileRange.x == xTileRange.y)
                     {
                         float missingLower = xRange.x-xTileRange.x*levelTile;
@@ -100,47 +96,102 @@ namespace ProceduralMeshes {
                     }
                     if (zTileRange.x == zTileRange.y)
                     {
-                        float missingLower = zRange.x-zTileRange.x*levelTile;
-                        float missingHigher = zTileRange.y*levelTile-zRange.y;
+                        float missingLower = zRange.x-zTileRange.x*levelTileZ;
+                        float missingHigher = zTileRange.y*levelTileZ-zRange.y;
                         if (missingLower < missingHigher)
                         {
                             zTileRange = new int2(zTileRange.x-1,zTileRange.y);
-                            zRange = new float2(zTileRange.x*levelTile,zRange.y);
+                            zRange = new float2(zTileRange.x*levelTileZ,zRange.y);
                         }
                         else
                         {
                             zTileRange = new int2(zTileRange.x,zTileRange.y+1);
-                            zRange = new float2(zRange.x,zTileRange.y*levelTile);                            
+                            zRange = new float2(zRange.x,zTileRange.y*levelTileZ);                            
                         }
                     }
-                    int4 rangeBounds = new int4(0,0,(int)Mathf.Pow(2, deepestLevel-i), (int)Mathf.Pow(2, deepestLevel-i));
-                    /*int4 rangeBoundsAbsolute = new int4(0,0,(int)Mathf.Pow(2, deepestLevel-i), (int)Mathf.Pow(2, deepestLevel-i));
-                    int4 rangeBoundsScreen = new int4((int)(minimumX/levelTile), (int)(minimumZ/levelTile), (int)Mathf.Ceil(maximumX/levelTile), (int)Mathf.Ceil(maximumZ/levelTile));
-                    int4 rangeBounds = new int4(
-                        Mathf.Max(rangeBoundsAbsolute.x, rangeBoundsScreen.x),
-                        Mathf.Max(rangeBoundsAbsolute.y, rangeBoundsScreen.y),
-                        Mathf.Min(rangeBoundsAbsolute.z, rangeBoundsScreen.z),
-                        Mathf.Min(rangeBoundsAbsolute.w, rangeBoundsScreen.w)
-                    );*/
+                    int4 rangeBounds = new int4((int)(screenBounds.x/levelTile), (int)(screenBounds.y/levelTileZ), (int)Mathf.Ceil(screenBounds.z/levelTile), (int)Mathf.Ceil(screenBounds.w/levelTileZ));
                     tileRanges[i] = new int4((int)Mathf.Max(xTileRange.x, rangeBounds.x), (int)Mathf.Max(zTileRange.x, rangeBounds.y), (int)Mathf.Min(xTileRange.y, rangeBounds.z), (int)Mathf.Min(zTileRange.y, rangeBounds.w));
-                    if (tileRanges[i].x == rangeBounds.x && tileRanges[i].y == rangeBounds.y && tileRanges[i].z == rangeBounds.z && tileRanges[i].w == rangeBounds.w)
+                    if (tileRanges[i].z<=tileRanges[i].x || tileRanges[i].w <= tileRanges[i].y)
+                    {
+                        levelsToIgnore++;
+                    }
+                    if (tileRanges[i].x <= rangeBounds.x && tileRanges[i].y <= rangeBounds.y && tileRanges[i].z >= rangeBounds.z && tileRanges[i].w >= rangeBounds.w)
                     {
                         numberOfLevels = i + 1;
                         break;
                     }
                 }   
+                if (levelsToIgnore > 0)
+                {
+                    deepestLevel-=levelsToIgnore;
+                    numberOfLevels-=levelsToIgnore;
+                    tileRanges.InsertRange(0,tileRanges.GetRange(levelsToIgnore,numberOfLevels));
+                }
             }
-
         }
         int GetFromBool(bool b) => b ? 1 : 0;
 
-        /*public float4 GetScreenBounds(Camera mainCamera)
+        public float4 GetScreenBounds(Camera mainCamera)
         {
-            for (int i=0; i<Screen.width; i++)
+            float precision = 1f/Screen.height;
+            float minimumX = 1f;
+            float maximumX = 0f;
+            float minimumZ = zScale;
+            float maximumZ = 0f;
+            Plane plane = new Plane(Vector3.up, -midH*verticalScaleFactor);
+            for (int i=0; i<(int)Mathf.Ceil(1/precision); i++)
             {
-                for (int j=0; j<)
+                Ray ray1 = mainCamera.ViewportPointToRay(new Vector3(0f, i*precision, 0f));
+                Ray ray2 = mainCamera.ViewportPointToRay(new Vector3(1f, i*precision, 0f));
+                if (plane.Raycast(ray1, out float distance))
+                {
+                    Vector3 intersection = ray1.GetPoint(distance);
+                    minimumX = Mathf.Min(minimumX,intersection.x);
+                    maximumX = Mathf.Max(maximumX,intersection.x);
+                    minimumZ = Mathf.Min(minimumZ,intersection.z);
+                    maximumZ = Mathf.Max(maximumZ,intersection.z);
+                }
+                if (plane.Raycast(ray2, out float distance2))
+                {
+                    Vector3 intersection = ray2.GetPoint(distance2);
+                    minimumX = Mathf.Min(minimumX,intersection.x);
+                    maximumX = Mathf.Max(maximumX,intersection.x);
+                    minimumZ = Mathf.Min(minimumZ,intersection.z);
+                    maximumZ = Mathf.Max(maximumZ,intersection.z);
+                }
+                if (minimumX<=0f && maximumX >= 1f && minimumZ<=0f && maximumZ >= zScale)
+                {
+                    break;
+                }
             }
-        }*/
+            precision = 1f/Screen.width;
+            for (int i=1; i<(int)Mathf.Ceil(1/precision)-1; i++)
+            {
+                Ray ray1 = mainCamera.ViewportPointToRay(new Vector3(i*precision, 0f, 0f));
+                Ray ray2 = mainCamera.ViewportPointToRay(new Vector3(i*precision, 1f, 0f));
+                if (plane.Raycast(ray1, out float distance3))
+                {
+                    Vector3 intersection = ray1.GetPoint(distance3);
+                    minimumX = Mathf.Min(minimumX,intersection.x);
+                    maximumX = Mathf.Max(maximumX,intersection.x);
+                    minimumZ = Mathf.Min(minimumZ,intersection.z);
+                    maximumZ = Mathf.Max(maximumZ,intersection.z);
+                }
+                if (plane.Raycast(ray2, out float distance4))
+                {
+                    Vector3 intersection = ray2.GetPoint(distance4);
+                    minimumX = Mathf.Min(minimumX,intersection.x);
+                    maximumX = Mathf.Max(maximumX,intersection.x);
+                    minimumZ = Mathf.Min(minimumZ,intersection.z);
+                    maximumZ = Mathf.Max(maximumZ,intersection.z);
+                }
+                if (minimumX<=0f && maximumX >= 1f && minimumZ<=0f && maximumZ >= zScale)
+                {
+                    break;
+                }
+            }
+            return new float4(Mathf.Max(0f,minimumX),Mathf.Max(0f,minimumZ),Mathf.Min(1f,maximumX),Mathf.Min(zScale,maximumZ));
+        }
 
         public float GetFinalDistance(float boundMin, float boundMax, float levelRadius, bool horizontal, bool increasing)
         {
