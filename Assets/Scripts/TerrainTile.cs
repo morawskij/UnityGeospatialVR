@@ -29,8 +29,10 @@ namespace ProceduralMeshes {
 			int vi = (int)Math.Min(z,128)*(257-128*holes[0]-128*holes[1]-holes[0]*holes[1])+(int)Math.Max(0,z-129)*(257-128*holes[2]-128*holes[3]-holes[2]*holes[3])+GetFromBool(z>128)*(257-128*(holes[0]*holes[2]+holes[1]*holes[3]));
 			int ti = (int)Math.Min(z-1,128)*(512-256*(holes[0]+holes[1]))+(int)Math.Max(z-129,0)*(512-256*(holes[2]+holes[3]));
 			int referencePower = (int)Math.Pow(2,levelExcess);
-			int x0 = tileX % referencePower*(int)Math.Pow(2,8-levelExcess);
-			int z0 = tileZ % referencePower*(int)Math.Pow(2,8-levelExcess);
+			int x0 = (int)(tileX % referencePower * Math.Pow(2,8-levelExcess));
+			int z0 = (int)(tileZ % referencePower * Math.Pow(2,8-levelExcess));
+			int subtiling = (int)Math.Pow(2,Math.Max(0,levelExcess-8));
+			float2 coeffCorrector= new float2 ((float)tileX%subtiling/(float)subtiling,(float)tileZ%subtiling/(float)subtiling);
 			int x_start = 128*holes[2*GetFromBool(z>128)];
 			int x_end = 257-128*holes[2*GetFromBool(z>128)+1]-holes[2*GetFromBool(z>128)]*holes[2*GetFromBool(z>128)+1];
 			if (z==128)
@@ -50,8 +52,8 @@ namespace ProceduralMeshes {
 					float h01 = elevationArray[(z0+(int)Math.Floor((float)z/(float)referencePower)) * 257 + x0+(int)Math.Ceiling((float)x/(float)referencePower)];
 					float h10 = elevationArray[(z0+(int)Math.Ceiling((float)z/(float)referencePower)) * 257 + x0+(int)Math.Floor((float)x/(float)referencePower)];
 					float h11 = elevationArray[(z0+(int)Math.Ceiling((float)z/(float)referencePower)) * 257 + x0+(int)Math.Ceiling((float)x/(float)referencePower)];
-					float alpha = (float)(z%referencePower)/(float)referencePower;
-					float beta = (float)(x%referencePower)/(float)referencePower;
+					float alpha = (float)(z%referencePower)/(float)referencePower+coeffCorrector.y;
+					float beta = (float)(x%referencePower)/(float)referencePower+coeffCorrector.x;
 					vertex.position.y = (alpha*beta*h11+alpha*(1-beta)*h10+(1-alpha)*beta*h01+(1-alpha)*(1-beta)*h00 - midH) * VerticalScaleFactor; 
 				}
 				else
