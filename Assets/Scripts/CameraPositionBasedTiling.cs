@@ -17,13 +17,14 @@ namespace ProceduralMeshes {
         public float midH;
         public float verticalScaleFactor;
         public float overallScaleFactor;
+        public List<int4> levelRanges;
         int maximumDescentLevel;
 
         int DEMwidth;
         int DEMheight;
         NativeArray<float> roughTopography;
 
-        public CameraPositionBasedTiling(Camera mainCamera, float zScale, int maximumDescentLevel, float midH, NativeArray<float> roughTopography, float overallScaleFactor, float verticalScaleFactor) {
+        public CameraPositionBasedTiling(Camera mainCamera, float zScale, int maximumDescentLevel, float midH, NativeArray<float> roughTopography, float overallScaleFactor, float verticalScaleFactor, List<int4> levelRanges) {
             this.mainCamera = mainCamera;
             this.zScale = zScale;
             this.upperZBound = zScale*overallScaleFactor;
@@ -32,6 +33,7 @@ namespace ProceduralMeshes {
             this.roughTopography = roughTopography;
             this.overallScaleFactor = overallScaleFactor;
             this.verticalScaleFactor = verticalScaleFactor;
+            this.levelRanges = levelRanges;
             tileRanges = new List<int4>(maximumDescentLevel+1);
             for (int level = 0; level <=maximumDescentLevel; level++) {
                 tileRanges.Add(new int4((int)Math.Pow(2,maximumDescentLevel-level), (int)Math.Pow(2,maximumDescentLevel-level), 0, 0));
@@ -43,7 +45,7 @@ namespace ProceduralMeshes {
         public int numberOfLevels=1;
         public List<int4> tileRanges;
 
-        public void DetermineTileRanges(float margin) {
+        public void DetermineTileRanges() {
             float pixelAngle = 2f * Mathf.Atan(
                 Mathf.Tan(mainCamera.fieldOfView * 0.5f * Mathf.Deg2Rad)
                 / mainCamera.pixelHeight
@@ -114,7 +116,7 @@ namespace ProceduralMeshes {
                         }
                     }
                     int4 rangeBounds = new int4((int)(screenBounds.x/levelTile), (int)(screenBounds.y/levelTileZ), (int)Mathf.Ceil(screenBounds.z/levelTile), (int)Mathf.Ceil(screenBounds.w/levelTileZ));
-                    tileRanges[i] = new int4((int)Mathf.Max(xTileRange.x, rangeBounds.x), (int)Mathf.Max(zTileRange.x, rangeBounds.y), (int)Mathf.Min(xTileRange.y, rangeBounds.z), (int)Mathf.Min(zTileRange.y, rangeBounds.w));
+                    tileRanges[i] = new int4((int)Mathf.Max(Mathf.Max(xTileRange.x, rangeBounds.x),levelRanges[deepestLevel-i].x), (int)Mathf.Max(Mathf.Max(zTileRange.x, rangeBounds.y),levelRanges[deepestLevel-i].y), (int)Mathf.Min(Mathf.Min(xTileRange.y, rangeBounds.z),levelRanges[deepestLevel-i].z), (int)Mathf.Min(Mathf.Min(zTileRange.y, rangeBounds.w),levelRanges[deepestLevel-i].w));
                     if (tileRanges[i].z<=tileRanges[i].x || tileRanges[i].w <= tileRanges[i].y)
                     {
                         levelsToIgnore++;

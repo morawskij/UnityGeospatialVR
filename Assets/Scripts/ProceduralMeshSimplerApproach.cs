@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -19,7 +20,6 @@ namespace ProceduralMeshes {
 
 		public string projectName = "Antarctica";
 		public float VE = 1f;
-		public float margin = 0.5f;
 		
 		public List<int> textureOrder;
 		public List<float> textureOpacities;
@@ -32,6 +32,7 @@ namespace ProceduralMeshes {
 
 		int oldDeepestLevel = 0;
 		int oldNumberOfLevels = 1;
+		public List<int4> levelRanges;
 		public List<int4> oldTileRanges = new List<int4>();		
 
 		int DEMwidth;
@@ -61,12 +62,8 @@ namespace ProceduralMeshes {
 		List<string> toBeRemoved = default;
 		Dictionary<TileID,GameObject> tileObjects = new Dictionary<TileID,GameObject>();
 
-		public int generateRarely = 1000;
-		int generateCounter = default;
-
 		void Awake () {
 			oldTileRanges.Add(new int4(0,0,0,0));
-			generateCounter = generateRarely;
 			elevationInfo = new ElevationMetadata();
 			texturesInfo = new AllTexturesMetadata();
 			cameraPosition = mainCamera.transform.position;
@@ -113,7 +110,6 @@ namespace ProceduralMeshes {
 					}
 				}	
 			}
-			generateCounter=50;
 			regenerationRequested = true;
 		}
 
@@ -140,32 +136,40 @@ namespace ProceduralMeshes {
 		}
 
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
-			meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, maximumDescentLevel, midH, roughTopography, overallScaleFactor, verticalScaleFactor*VE);
-			meshTilingScheme.DetermineTileRanges(margin);
+			meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, maximumDescentLevel, midH, roughTopography, overallScaleFactor, verticalScaleFactor*VE, levelRanges);
+			meshTilingScheme.DetermineTileRanges();
 			numberOfLevels = meshTilingScheme.numberOfLevels;
 			deepestLevel = meshTilingScheme.deepestLevel;
 			tileRanges = new List<int4>(meshTilingScheme.tileRanges.GetRange(0,numberOfLevels));
-			if (generateCounter >= generateRarely)
+			var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, new List<int4>(tileRanges.GetRange(0,numberOfLevels)), oldDeepestLevel, oldNumberOfLevels, new List<int4>(oldTileRanges.GetRange(0,oldNumberOfLevels)), midH, hRange, overallScaleFactor, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
+			toBeRemoved = nextTileFamily.GenerateTileMeshes();
+			ReleaseCurrentTileAssets();
+			tileFamily = nextTileFamily;
+			Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
+			foreach (int i in Enumerable.Range(0, tileFamily.TileMeshes.Count))
 			{
-				var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, new List<int4>(tileRanges.GetRange(0,numberOfLevels)), oldDeepestLevel, oldNumberOfLevels, new List<int4>(oldTileRanges.GetRange(0,oldNumberOfLevels)), midH, hRange, overallScaleFactor, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
-				toBeRemoved = nextTileFamily.GenerateTileMeshes();
-				ReleaseCurrentTileAssets();
-				tileFamily = nextTileFamily;
-				CreateTileObjects();		
-				generateCounter = 0;		
-				oldDeepestLevel = deepestLevel;
-				oldNumberOfLevels = numberOfLevels;
-				oldTileRanges = new List<int4>(tileRanges.GetRange(0,numberOfLevels));
+				GameObject tileObject = new GameObject(tileFamily.TileMeshes[i].name);
+				TileID key = new TileID(tileFamily.TileMeshes[i].name);
+				tileObjects.Add(key,tileObject);
+				tileObject.transform.SetParent(transform, false);
+				tileObject.AddComponent<MeshFilter>().sharedMesh = tileFamily.TileMeshes[i];
+				MeshRenderer tileRenderer = tileObject.AddComponent<MeshRenderer>();
+				if (sourceMaterial != null) {
+					Material tileMaterial = new Material(sourceMaterial);
+					tileMaterial.mainTexture = tileFamily.TileTextures[i];
+					tileRenderer.sharedMaterial = tileMaterial;
+				}			
+				tileObjects[key].transform.localScale = new Vector3(1f, VE, 1f);	
+				yield return null;
 			}
-			else
-			{
-				generationInProgress = false;
-				generateCounter++;
-			}
-			yield break;
+
+			//CreateTileObjects();				
+			oldDeepestLevel = deepestLevel;
+			oldNumberOfLevels = numberOfLevels;
+			oldTileRanges = new List<int4>(tileRanges.GetRange(0,numberOfLevels));
 		}
 
-		void CreateTileObjects () {
+		/*void CreateTileObjects () {
 			Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
 			for (int i = 0; i < tileFamily.TileMeshes.Count; i++) {
 				GameObject tileObject = new GameObject(tileFamily.TileMeshes[i].name);
@@ -184,19 +188,13 @@ namespace ProceduralMeshes {
 				tileObjects[key].transform.localScale = new Vector3(1f, VE, 1f);
 			}
 			generationInProgress = false;
-		}
+		}*/
 
 		void ReleaseCurrentTileAssets () {
 			foreach (string fakeKey in toBeRemoved) {
 				TileID key = new TileID(fakeKey);
 				RemoveTile(key);
 			}
-			//tileObjects.Clear();
-
-			//if (tileFamily != null) {
-			//	tileFamily.ReleaseGeneratedAssets();
-			//	tileFamily = null;
-			//}
 		}
 
 		void OnDestroy () {
@@ -217,6 +215,7 @@ namespace ProceduralMeshes {
 			texturePyramidLevels = texturesInfo.pyramidLevels;
 			textureNames = texturesInfo.textureNames;
 			numberOfTextures = texturesInfo.numberOfTextures;
+			levelRanges = texturesInfo.levelRanges;
 			maximumDescentLevel = pyramidLevels;
 			if (texturePyramidLevels != null) {
 				foreach (int textureLevel in texturePyramidLevels) {
