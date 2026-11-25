@@ -283,8 +283,7 @@ namespace ProceduralMeshes {
                 );
                 var texture = new Texture2D(256, 256, TextureFormat.RGBA32, false);
                 var newPixels = new Color[65536];
-                try
-                {
+                if (File.Exists(path)){
                     ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false);
                     if (level == textureTileNumbers.z)
                     {
@@ -304,9 +303,7 @@ namespace ProceduralMeshes {
                         }
                     }              
                 }
-                catch (Exception)
-                {
-                    
+                else {                  
                     Array.Fill(newPixels, Color.clear); 
                 }
                 for (var j=0; j<pixels.Length; j++)

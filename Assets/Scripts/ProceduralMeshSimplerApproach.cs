@@ -20,7 +20,7 @@ namespace ProceduralMeshes {
 
 		public string projectName = "Antarctica";
 		public float VE = 1f;
-		
+
 		public List<int> textureOrder;
 		public List<float> textureOpacities;
 		[SerializeField] ExternalElevationLoader elevationLoader;
@@ -32,6 +32,7 @@ namespace ProceduralMeshes {
 
 		int oldDeepestLevel = 0;
 		int oldNumberOfLevels = 1;
+		string oldProjectName;
 		public List<int4> levelRanges;
 		public List<int4> oldTileRanges = new List<int4>();		
 
@@ -64,6 +65,7 @@ namespace ProceduralMeshes {
 
 		void Awake () {
 			oldTileRanges.Add(new int4(0,0,0,0));
+			oldProjectName = projectName;
 			elevationInfo = new ElevationMetadata();
 			texturesInfo = new AllTexturesMetadata();
 			cameraPosition = mainCamera.transform.position;
@@ -110,6 +112,12 @@ namespace ProceduralMeshes {
 					}
 				}	
 			}
+			if (projectName != oldProjectName)
+			{
+				LoadProjectMetadata();
+				oldProjectName = projectName;
+				return;
+			}
 			regenerationRequested = true;
 		}
 
@@ -129,21 +137,20 @@ namespace ProceduralMeshes {
 				return;
 			}
 			regenerationRequested = false;
-			LoadProjectMetadata();
+			
 
 			generationInProgress = true;
 			StartCoroutine(GenerateMeshWhenTilesAreLoaded());
 		}
 
 		IEnumerator GenerateMeshWhenTilesAreLoaded () {
-			meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, maximumDescentLevel, midH, roughTopography, overallScaleFactor, verticalScaleFactor*VE, levelRanges);
+			meshTilingScheme = new CameraPositionBasedTiling(mainCamera, zScaleFactor, maximumDescentLevel, midH, hRange, roughTopography, overallScaleFactor, verticalScaleFactor*VE, levelRanges);
 			meshTilingScheme.DetermineTileRanges();
 			numberOfLevels = meshTilingScheme.numberOfLevels;
 			deepestLevel = meshTilingScheme.deepestLevel;
 			tileRanges = new List<int4>(meshTilingScheme.tileRanges.GetRange(0,numberOfLevels));
 			var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, new List<int4>(tileRanges.GetRange(0,numberOfLevels)), oldDeepestLevel, oldNumberOfLevels, new List<int4>(oldTileRanges.GetRange(0,oldNumberOfLevels)), midH, hRange, overallScaleFactor, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
 			toBeRemoved = nextTileFamily.GenerateTileMeshes();
-			ReleaseCurrentTileAssets();
 			tileFamily = nextTileFamily;
 			Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
 			foreach (int i in Enumerable.Range(0, tileFamily.TileMeshes.Count))
@@ -162,33 +169,12 @@ namespace ProceduralMeshes {
 				tileObjects[key].transform.localScale = new Vector3(1f, VE, 1f);	
 				yield return null;
 			}
-
-			//CreateTileObjects();				
+			ReleaseCurrentTileAssets();		
+			generationInProgress = false;	
 			oldDeepestLevel = deepestLevel;
 			oldNumberOfLevels = numberOfLevels;
 			oldTileRanges = new List<int4>(tileRanges.GetRange(0,numberOfLevels));
 		}
-
-		/*void CreateTileObjects () {
-			Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
-			for (int i = 0; i < tileFamily.TileMeshes.Count; i++) {
-				GameObject tileObject = new GameObject(tileFamily.TileMeshes[i].name);
-				tileObjects.Add(new TileID(tileFamily.TileMeshes[i].name),tileObject);
-				tileObject.transform.SetParent(transform, false);
-				tileObject.AddComponent<MeshFilter>().sharedMesh = tileFamily.TileMeshes[i];
-				MeshRenderer tileRenderer = tileObject.AddComponent<MeshRenderer>();
-				if (sourceMaterial != null) {
-					Material tileMaterial = new Material(sourceMaterial);
-					tileMaterial.mainTexture = tileFamily.TileTextures[i];
-					tileRenderer.sharedMaterial = tileMaterial;
-				}
-			}
-			foreach (TileID key in tileObjects.Keys)
-			{
-				tileObjects[key].transform.localScale = new Vector3(1f, VE, 1f);
-			}
-			generationInProgress = false;
-		}*/
 
 		void ReleaseCurrentTileAssets () {
 			foreach (string fakeKey in toBeRemoved) {
@@ -223,7 +209,7 @@ namespace ProceduralMeshes {
 				}
 			}
 			overallScaleFactor = Mathf.Pow(2,maximumDescentLevel-5);
-			verticalScaleFactor = overallScaleFactor / (256*elevationInfo.dem_resolution_x);
+			verticalScaleFactor = overallScaleFactor / (Mathf.Pow(2,pyramidLevels+7)*elevationInfo.dem_resolution_x);
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
 		}
 

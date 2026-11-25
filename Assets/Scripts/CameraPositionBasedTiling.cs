@@ -15,6 +15,7 @@ namespace ProceduralMeshes {
         public float zScale;
         public float upperZBound;
         public float midH;
+        public float hRange;
         public float verticalScaleFactor;
         public float overallScaleFactor;
         public List<int4> levelRanges;
@@ -24,12 +25,13 @@ namespace ProceduralMeshes {
         int DEMheight;
         NativeArray<float> roughTopography;
 
-        public CameraPositionBasedTiling(Camera mainCamera, float zScale, int maximumDescentLevel, float midH, NativeArray<float> roughTopography, float overallScaleFactor, float verticalScaleFactor, List<int4> levelRanges) {
+        public CameraPositionBasedTiling(Camera mainCamera, float zScale, int maximumDescentLevel, float midH, float hRange, NativeArray<float> roughTopography, float overallScaleFactor, float verticalScaleFactor, List<int4> levelRanges) {
             this.mainCamera = mainCamera;
             this.zScale = zScale;
             this.upperZBound = zScale*overallScaleFactor;
             this.maximumDescentLevel = maximumDescentLevel;
             this.midH = midH;
+            this.hRange = hRange;
             this.roughTopography = roughTopography;
             this.overallScaleFactor = overallScaleFactor;
             this.verticalScaleFactor = verticalScaleFactor;
@@ -72,9 +74,8 @@ namespace ProceduralMeshes {
             else
             {
                 float4 screenBounds = GetScreenBounds(mainCamera);
-                Debug.Log(screenBounds);
-                float2 xRange = new float2(cameraPosition.x,cameraPosition.x);
-                float2 zRange = new float2(cameraPosition.z,cameraPosition.z);
+                float2 xRange = new float2(referencePoint.x,referencePoint.x);
+                float2 zRange = new float2(referencePoint.y,referencePoint.y);
                 int levelsToIgnore=0;
                 for (int i = 0; i <= deepestLevel; i++) {
                     float levelTile = overallScaleFactor*Mathf.Pow(2, - deepestLevel + i);
@@ -116,7 +117,7 @@ namespace ProceduralMeshes {
                         }
                     }
                     int4 rangeBounds = new int4((int)(screenBounds.x/levelTile), (int)(screenBounds.y/levelTileZ), (int)Mathf.Ceil(screenBounds.z/levelTile), (int)Mathf.Ceil(screenBounds.w/levelTileZ));
-                    tileRanges[i] = new int4((int)Mathf.Max(Mathf.Max(xTileRange.x, rangeBounds.x),levelRanges[deepestLevel-i].x), (int)Mathf.Max(Mathf.Max(zTileRange.x, rangeBounds.y),levelRanges[deepestLevel-i].y), (int)Mathf.Min(Mathf.Min(xTileRange.y, rangeBounds.z),levelRanges[deepestLevel-i].z), (int)Mathf.Min(Mathf.Min(zTileRange.y, rangeBounds.w),levelRanges[deepestLevel-i].w));
+                    tileRanges[i] = new int4((int)Mathf.Max(Mathf.Max(xTileRange.x, rangeBounds.x-1),levelRanges[deepestLevel-i].x), (int)Mathf.Max(Mathf.Max(zTileRange.x, rangeBounds.y-1),levelRanges[deepestLevel-i].y), (int)Mathf.Min(Mathf.Min(xTileRange.y, rangeBounds.z+1),levelRanges[deepestLevel-i].z), (int)Mathf.Min(Mathf.Min(zTileRange.y, rangeBounds.w+1),levelRanges[deepestLevel-i].w));
                     if (tileRanges[i].z<=tileRanges[i].x || tileRanges[i].w <= tileRanges[i].y)
                     {
                         levelsToIgnore++;
@@ -144,8 +145,8 @@ namespace ProceduralMeshes {
             float maximumX = 0f;
             float minimumZ = upperZBound;
             float maximumZ = 0f;
-            Plane plane = new Plane(Vector3.up, -midH*verticalScaleFactor);
-            for (int i=0; i<(int)Mathf.Ceil(1/precision); i++)
+            Plane plane = new Plane(Vector3.up, hRange*verticalScaleFactor/2f);
+            for (int i=0; i<(int)Mathf.Ceil(1f/precision); i++)
             {
                 Ray ray1 = mainCamera.ViewportPointToRay(new Vector3(0f, i*precision, 0f));
                 Ray ray2 = mainCamera.ViewportPointToRay(new Vector3(1f, i*precision, 0f));
@@ -171,7 +172,7 @@ namespace ProceduralMeshes {
                 }
             }
             precision = 1f/Screen.width;
-            for (int i=1; i<(int)Mathf.Ceil(1/precision)-1; i++)
+            for (int i=1; i<(int)Mathf.Ceil(1f/precision)-1; i++)
             {
                 Ray ray1 = mainCamera.ViewportPointToRay(new Vector3(i*precision, 0f, 0f));
                 Ray ray2 = mainCamera.ViewportPointToRay(new Vector3(i*precision, 1f, 0f));
@@ -197,7 +198,6 @@ namespace ProceduralMeshes {
                 }
             }
             return new float4(Mathf.Max(0f,minimumX),Mathf.Max(0f,minimumZ),Mathf.Min(overallScaleFactor,maximumX),Mathf.Min(upperZBound,maximumZ));
-            //return new float4(0f,0f,overallScaleFactor,upperZBound);
         }
 
         public float GetFinalDistance(float boundMin, float boundMax, float levelRadius, bool horizontal, bool increasing)
