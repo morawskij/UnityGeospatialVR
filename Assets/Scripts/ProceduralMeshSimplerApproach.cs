@@ -56,9 +56,6 @@ namespace ProceduralMeshes {
 		[NonSerialized] bool hasValidatedTextures;
 
         List<int> texturePyramidLevels;
-        List<int> textureNativeLevels;
-        List<int> textureNativeTilesX;
-        List<int> textureNativeTilesZ;
 	    List<bool> textureVisibilityToggles;
         List<string> textureNames;
 		int numberOfTextures;
@@ -88,9 +85,6 @@ namespace ProceduralMeshes {
 		public GameObject CreateLayerUI(
 			string projectName,
 			List<int> textureOrder,
-			List<int> nativeLevels,
-			List<int> nativeTilesX,
-			List<int> nativeTilesZ,
 			List<bool> visibilityToggles,
 			List<float> textureOpacities,
 			List<string> textureNames,
@@ -128,9 +122,6 @@ namespace ProceduralMeshes {
 			layerUI.Initialize(
 				projectName,
 				textureOrder,
-				nativeLevels,
-				nativeTilesX,
-				nativeTilesZ,
 				visibilityToggles,
 				textureOpacities,
 				textureNames,
@@ -261,9 +252,6 @@ namespace ProceduralMeshes {
 			hRange = elevationInfo.h_range;
 			pyramidLevels = elevationInfo.pyramid_levels;
 			texturePyramidLevels = texturesInfo.pyramidLevels;
-			textureNativeLevels = texturesInfo.nativeLevels;
-			textureNativeTilesX = texturesInfo.nativeTilesX;
-			textureNativeTilesZ = texturesInfo.nativeTilesZ;
 			textureNames = texturesInfo.textureNames;
 			numberOfTextures = texturesInfo.numberOfTextures;
 			textureVisibilityToggles = new List<bool>();
@@ -278,7 +266,7 @@ namespace ProceduralMeshes {
 			overallScaleFactor = Mathf.Pow(2,maximumDescentLevel-5);
 			verticalScaleFactor = overallScaleFactor / (Mathf.Pow(2,pyramidLevels+7)*elevationInfo.dem_resolution_x);
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
-			uiController = CreateLayerUI(projectName, textureOrder, textureNativeLevels, textureNativeTilesX, textureNativeTilesZ, textureVisibilityToggles, textureOpacities, textureNames, numberOfTextures, mainCamera);
+			uiController = CreateLayerUI(projectName, textureOrder, textureVisibilityToggles, textureOpacities, textureNames, numberOfTextures, mainCamera);
 		}
 
 		public struct TileID {

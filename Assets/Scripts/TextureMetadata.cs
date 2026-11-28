@@ -14,9 +14,6 @@ namespace ProceduralMeshes {
 
         public int numberOfTextures = 0;
         public List<int> pyramidLevels;
-        public List<int> nativeLevels;
-        public List<int> nativeTilesX;
-        public List<int> nativeTilesZ;
         public List<string> textureNames;
         public List<int4> levelRanges = new List<int4>();
 
@@ -25,19 +22,13 @@ namespace ProceduralMeshes {
             List<string> metadataFiles = new List<string>(Directory.GetFiles($"Projects/{projectName}", textureMetadataPattern));
             numberOfTextures = metadataFiles.Count-1;
             pyramidLevels = new List<int>(numberOfTextures);
-            nativeLevels = new List<int>(numberOfTextures);
-            nativeTilesX = new List<int>(numberOfTextures);
-            nativeTilesZ = new List<int>(numberOfTextures);
             textureNames = new List<string>(numberOfTextures);
             for (int i = 0; i<numberOfTextures; i++)
             {
                 TextureMetadata currentTextureMetadata = new TextureMetadata();
                 currentTextureMetadata.TextureLoadMetadata($"Projects/{projectName}/texture_{i.ToString()}_metadata.json");
                 textureNames.Add(currentTextureMetadata.name);
-                pyramidLevels.Add(currentTextureMetadata.pyramid_levels);             
-                nativeLevels.Add(currentTextureMetadata.native_level);   
-                nativeTilesX.Add(currentTextureMetadata.native_tile_x);   
-                nativeTilesZ.Add(currentTextureMetadata.native_tile_z);   
+                pyramidLevels.Add(currentTextureMetadata.pyramid_levels);               
             }
         string textureFamilyMetadataSource = Path.Combine("Projects",projectName,"texture_family_metadata.json");
         TextureFamilyMetadata texturesMetadata = new TextureFamilyMetadata();
@@ -59,9 +50,6 @@ namespace ProceduralMeshes {
     {
         public string name;
         public int pyramid_levels;
-        public int native_level;
-        public int native_tile_x;
-        public int native_tile_z;
 
 
         public void TextureLoadMetadata(TextAsset metadataAsset) {
@@ -76,9 +64,6 @@ namespace ProceduralMeshes {
             TextureMetadata metadata = JsonUtility.FromJson<TextureMetadata>(json);
             name = metadata.name;
             pyramid_levels = metadata.pyramid_levels;
-            native_level = metadata.native_level;
-            native_tile_x = metadata.native_tile_x;
-            native_tile_z = metadata.native_tile_z;
         }
 
 
