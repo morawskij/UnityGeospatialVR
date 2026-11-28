@@ -7,6 +7,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ProceduralMeshes {
 
@@ -29,6 +30,7 @@ namespace ProceduralMeshes {
 		ElevationMetadata elevationInfo;
 		AllTexturesMetadata texturesInfo;
 		CameraPositionBasedTiling meshTilingScheme;
+		GameObject uiController;
 
 		int oldDeepestLevel = 0;
 		int oldNumberOfLevels = 1;
@@ -54,6 +56,10 @@ namespace ProceduralMeshes {
 		[NonSerialized] bool hasValidatedTextures;
 
         List<int> texturePyramidLevels;
+        List<int> textureNativeLevels;
+        List<int> textureNativeTilesX;
+        List<int> textureNativeTilesZ;
+	    List<bool> textureVisibilityToggles;
         List<string> textureNames;
 		int numberOfTextures;
 		int maximumDescentLevel;
@@ -78,6 +84,62 @@ namespace ProceduralMeshes {
 		}
 
 		void Start () => regenerationRequested = true;
+
+		public GameObject CreateLayerUI(
+			string projectName,
+			List<int> textureOrder,
+			List<int> nativeLevels,
+			List<int> nativeTilesX,
+			List<int> nativeTilesZ,
+			List<bool> visibilityToggles,
+			List<float> textureOpacities,
+			List<string> textureNames,
+			int numberOfTextures,
+			Camera mainCamera)
+		{
+			// Create the Canvas GameObject
+			GameObject canvasObject = new GameObject("UI_Canvas");
+
+			// Add Canvas
+			Canvas canvas = canvasObject.AddComponent<Canvas>();
+
+			// Configure Canvas
+			canvas.renderMode = RenderMode.ScreenSpaceCamera;
+			canvas.worldCamera = mainCamera;
+			canvas.planeDistance = 1f;
+			canvas.sortingOrder = 10;
+
+			// Add CanvasScaler
+			CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
+
+			scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+			scaler.referenceResolution = new Vector2(1920, 1080);
+			scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+			scaler.matchWidthOrHeight = 0.5f;
+
+			// Add GraphicRaycaster
+			canvasObject.AddComponent<GraphicRaycaster>();
+
+			// Add LayerControllerUI
+			LayerControllerUI layerUI =
+				canvasObject.AddComponent<LayerControllerUI>();
+
+			// Initialize it with your project data
+			layerUI.Initialize(
+				projectName,
+				textureOrder,
+				nativeLevels,
+				nativeTilesX,
+				nativeTilesZ,
+				visibilityToggles,
+				textureOpacities,
+				textureNames,
+				numberOfTextures,
+				mainCamera
+			);
+
+			return canvasObject;
+		}
 
 		void OnValidate () {
 			if (VE != validatedVE) {
@@ -149,7 +211,7 @@ namespace ProceduralMeshes {
 			numberOfLevels = meshTilingScheme.numberOfLevels;
 			deepestLevel = meshTilingScheme.deepestLevel;
 			tileRanges = new List<int4>(meshTilingScheme.tileRanges.GetRange(0,numberOfLevels));
-			var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, new List<int4>(tileRanges.GetRange(0,numberOfLevels)), oldDeepestLevel, oldNumberOfLevels, new List<int4>(oldTileRanges.GetRange(0,oldNumberOfLevels)), midH, hRange, overallScaleFactor, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels);
+			var nextTileFamily = new TileFamily(deepestLevel, numberOfLevels, new List<int4>(tileRanges.GetRange(0,numberOfLevels)), oldDeepestLevel, oldNumberOfLevels, new List<int4>(oldTileRanges.GetRange(0,oldNumberOfLevels)), midH, hRange, overallScaleFactor, zScaleFactor, projectName, elevationLoader, verticalScaleFactor, numberOfTextures, textureOrder, textureOpacities, pyramidLevels, texturePyramidLevels, textureVisibilityToggles);
 			toBeRemoved = nextTileFamily.GenerateTileMeshes();
 			tileFamily = nextTileFamily;
 			Material sourceMaterial = GetComponent<MeshRenderer>().sharedMaterial;
@@ -199,8 +261,13 @@ namespace ProceduralMeshes {
 			hRange = elevationInfo.h_range;
 			pyramidLevels = elevationInfo.pyramid_levels;
 			texturePyramidLevels = texturesInfo.pyramidLevels;
+			textureNativeLevels = texturesInfo.nativeLevels;
+			textureNativeTilesX = texturesInfo.nativeTilesX;
+			textureNativeTilesZ = texturesInfo.nativeTilesZ;
 			textureNames = texturesInfo.textureNames;
 			numberOfTextures = texturesInfo.numberOfTextures;
+			textureVisibilityToggles = new List<bool>();
+			textureVisibilityToggles.AddRange(Enumerable.Repeat(true,numberOfTextures));
 			levelRanges = texturesInfo.levelRanges;
 			maximumDescentLevel = pyramidLevels;
 			if (texturePyramidLevels != null) {
@@ -211,6 +278,7 @@ namespace ProceduralMeshes {
 			overallScaleFactor = Mathf.Pow(2,maximumDescentLevel-5);
 			verticalScaleFactor = overallScaleFactor / (Mathf.Pow(2,pyramidLevels+7)*elevationInfo.dem_resolution_x);
 			zScaleFactor = elevationInfo.dem_resolution_y / elevationInfo.dem_resolution_x;
+			uiController = CreateLayerUI(projectName, textureOrder, textureNativeLevels, textureNativeTilesX, textureNativeTilesZ, textureVisibilityToggles, textureOpacities, textureNames, numberOfTextures, mainCamera);
 		}
 
 		public struct TileID {

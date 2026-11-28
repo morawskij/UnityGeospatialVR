@@ -28,12 +28,13 @@ namespace ProceduralMeshes {
 		List<int> textureOrder;
 		List<float> textureOpacities;
         List<int> texturePyramidLevels;
+        List<bool> textureVisibilityToggles;
 		float midH;
 		float hRange;
 		float zScaleFactor;
         float verticalScaleFactor;
         float overallScaleFactor;
-        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, int oldDeepestLevel, int oldNumberOfLevels, List<int4> oldTileRanges, float midH, float hRange, float overallScaleFactor, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels, List<int> texturePyramidLevels)
+        public TileFamily(int deepestLevel, int numberOfLevels, List<int4> tileRanges, int oldDeepestLevel, int oldNumberOfLevels, List<int4> oldTileRanges, float midH, float hRange, float overallScaleFactor, float zScaleFactor, string projectName, ExternalElevationLoader elevationLoader, float verticalScaleFactor, int numberOfTextures, List<int> textureOrder, List<float> textureOpacities, int pyramidLevels, List<int> texturePyramidLevels, List<bool> textureVisibilityToggles)
         {
             this.deepestLevel = deepestLevel;
             this.numberOfLevels = numberOfLevels;
@@ -55,6 +56,7 @@ namespace ProceduralMeshes {
             this.textureOpacities = textureOpacities;
             this.pyramidLevels = pyramidLevels;
             this.texturePyramidLevels = texturePyramidLevels;
+            this.textureVisibilityToggles = textureVisibilityToggles;
         }
 
         public void ChangeTextures(List<int> textureOrder, List<float> textureOpacities)
@@ -273,7 +275,10 @@ namespace ProceduralMeshes {
             Array.Fill(pixels, Color.clear);
             for (var i=0; i<numberOfTextures; i++)
             {
-
+                if (!textureVisibilityToggles[textureOrder[i]])
+                {
+                    continue;
+                }
                 int3 textureTileNumbers = LevelExcessTextureInfo(level, texturePyramidLevels[textureOrder[i]]-1, tileX, tileZ);
                 string path = Path.Combine(
                     "Projects",
